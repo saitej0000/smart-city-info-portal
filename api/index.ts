@@ -61,14 +61,89 @@ const authenticateToken = async (req: any, res: any, next: any) => {
     });
 };
 
+// --- OTP Helpers ---
+const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
+
+const sendEmailOTP = async (email: string, code: string) => {
+    const nodemailer = await import('nodemailer');
+    const transporter = nodemailer.default.createTransport({
+        service: 'gmail',
+        auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
+    });
+    await transporter.sendMail({
+        from: `"CivicPulse" <${process.env.GMAIL_USER}>`,
+        to: email,
+        subject: 'Your CivicPulse Email Verification Code',
+        html: `<div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;background:#f8fafc;border-radius:12px">
+          <h2 style="color:#3182CE">CivicPulse</h2>
+          <p>Your email verification code is:</p>
+          <h1 style="font-size:40px;letter-spacing:8px;color:#1a202c">${code}</h1>
+          <p style="color:#718096">This code expires in 10 minutes.</p>
+        </div>`,
+    });
+};
+
+const sendMobileOTP = async (mobile: string, code: string) => {
+    const apiKey = process.env.FAST2SMS_API_KEY;
+    if (!apiKey) throw new Error('SMS service not configured');
+    const resp = await fetch('https://www.fast2sms.com/dev/bulkV2', {
+        method: 'POST',
+        headers: { authorization: apiKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ route: 'otp', variables_values: code, numbers: mobile }),
+    });
+    const data = await resp.json();
+    if (!data.return) throw new Error('Failed to send SMS');
+};
+
+// OTP Endpoints
+app.post('/api/auth/send-email-otp', async (req, res) => {
+    const { email } = req.body;
+    const code = generateOTP();
+    const expires_at = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    await supabase.from('otp_store').delete().eq('identifier', email).eq('type', 'email');
+    await supabase.from('otp_store').insert([{ identifier: email, code, type: 'email', expires_at }]);
+    try { await sendEmailOTP(email, code); res.json({ success: true }); }
+    catch (e: any) { res.status(500).json({ error: 'Failed to send email: ' + e.message }); }
+});
+
+app.post('/api/auth/verify-email-otp', async (req, res) => {
+    const { email, code } = req.body;
+    const { data } = await supabase.from('otp_store')
+        .select('*').eq('identifier', email).eq('type', 'email').eq('code', code).single();
+    if (!data) return res.status(400).json({ error: 'Invalid OTP' });
+    if (new Date(data.expires_at) < new Date()) return res.status(400).json({ error: 'OTP expired' });
+    await supabase.from('otp_store').delete().eq('identifier', email).eq('type', 'email');
+    res.json({ success: true });
+});
+
+app.post('/api/auth/send-mobile-otp', async (req, res) => {
+    const { mobile } = req.body;
+    const code = generateOTP();
+    const expires_at = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    await supabase.from('otp_store').delete().eq('identifier', mobile).eq('type', 'mobile');
+    await supabase.from('otp_store').insert([{ identifier: mobile, code, type: 'mobile', expires_at }]);
+    try { await sendMobileOTP(mobile, code); res.json({ success: true }); }
+    catch (e: any) { res.status(500).json({ error: 'Failed to send SMS: ' + e.message }); }
+});
+
+app.post('/api/auth/verify-mobile-otp', async (req, res) => {
+    const { mobile, code } = req.body;
+    const { data } = await supabase.from('otp_store')
+        .select('*').eq('identifier', mobile).eq('type', 'mobile').eq('code', code).single();
+    if (!data) return res.status(400).json({ error: 'Invalid OTP' });
+    if (new Date(data.expires_at) < new Date()) return res.status(400).json({ error: 'OTP expired' });
+    await supabase.from('otp_store').delete().eq('identifier', mobile).eq('type', 'mobile');
+    res.json({ success: true });
+});
+
 // Auth
 app.post('/api/auth/register', async (req, res) => {
-    const { name, email, password } = req.body;
+    const { name, email, mobile, password } = req.body;
     try {
         const hashedPassword = bcrypt.hashSync(password, 10);
         const { data, error } = await supabase
             .from('users')
-            .insert([{ name, email, password: hashedPassword, role: 'CITIZEN' }])
+            .insert([{ name, email, mobile, password: hashedPassword, role: 'CITIZEN' }])
             .select()
             .single();
         if (error) throw error;
