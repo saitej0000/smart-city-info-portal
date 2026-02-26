@@ -272,6 +272,27 @@ async function startServer() {
     res.status(201).json({ success: true });
   });
 
+  // Job Applications
+  app.post('/api/jobs/:id/apply', authenticateToken, async (req: any, res) => {
+    if (req.user.role !== 'CITIZEN') return res.status(403).json({ error: 'Only citizens can apply' });
+    const { resume_url } = req.body;
+    if (!resume_url) return res.status(400).json({ error: 'Resume URL is required' });
+    const { data, error } = await supabase.from('job_applications')
+      .insert([{ job_id: req.params.id, citizen_id: req.user.id, resume_url }])
+      .select().single();
+    if (error) {
+      if (error.code === '23505') return res.status(400).json({ error: 'You have already applied for this job' });
+      return res.status(500).json({ error: error.message });
+    }
+    res.status(201).json({ id: data.id });
+  });
+
+  app.get('/api/jobs/:id/application', authenticateToken, async (req: any, res) => {
+    const { data } = await supabase.from('job_applications')
+      .select('id, status, applied_at').eq('job_id', req.params.id).eq('citizen_id', req.user.id).single();
+    res.json(data || null);
+  });
+
   // Departments
   app.get('/api/departments', async (req, res) => {
     const { data, error } = await supabase.from('departments').select('*');

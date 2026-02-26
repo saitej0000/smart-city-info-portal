@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '../store';
-import { Briefcase, Calendar, Clock, Plus, Search, Building2, X, Loader2, ArrowRight } from 'lucide-react';
+import { Briefcase, Calendar, Clock, Plus, Search, Building2, X, Loader2, ArrowRight, Upload, CheckCircle } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -21,6 +21,10 @@ export default function Jobs() {
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedJob, setSelectedJob] = useState<any>(null);
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [applyLoading, setApplyLoading] = useState(false);
+  const [applyError, setApplyError] = useState('');
+  const [application, setApplication] = useState<any>(null);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
     resolver: zodResolver(jobSchema),
@@ -70,6 +74,52 @@ export default function Jobs() {
     job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     job.department.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const openJobDetail = async (job: any) => {
+    setSelectedJob(job);
+    setResumeFile(null);
+    setApplyError('');
+    setApplication(null);
+    if (token) {
+      try {
+        const res = await fetch(`/api/jobs/${job.id}/application`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        setApplication(data);
+      } catch { }
+    }
+  };
+
+  const handleApply = async () => {
+    if (!resumeFile || !selectedJob) return;
+    setApplyLoading(true);
+    setApplyError('');
+    try {
+      const formData = new FormData();
+      formData.append('image', resumeFile);
+      const uploadRes = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
+      });
+      const { url, error: uploadErr } = await uploadRes.json();
+      if (!uploadRes.ok) throw new Error(uploadErr || 'Upload failed');
+
+      const applyRes = await fetch(`/api/jobs/${selectedJob.id}/apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ resume_url: url })
+      });
+      const applyData = await applyRes.json();
+      if (!applyRes.ok) throw new Error(applyData.error || 'Application failed');
+      setApplication({ id: applyData.id, status: 'PENDING', applied_at: new Date().toISOString() });
+    } catch (e: any) {
+      setApplyError(e.message);
+    } finally {
+      setApplyLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -130,7 +180,7 @@ export default function Jobs() {
                     <Calendar size={16} />
                     <span>Deadline: {new Date(job.deadline).toLocaleDateString()}</span>
                   </div>
-                  <button onClick={() => setSelectedJob(job)} className="text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-colors">
+                  <button onClick={() => openJobDetail(job)} className="text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-colors">
                     <ArrowRight size={20} />
                   </button>
                 </div>
@@ -162,7 +212,7 @@ export default function Jobs() {
               <span>{selectedJob.department}</span>
             </div>
             <p className="text-gray-700 mb-6 leading-relaxed">{selectedJob.description}</p>
-            <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-100 mb-4">
               <div className="flex items-center gap-2 text-sm font-medium text-red-500">
                 <Calendar size={16} />
                 <span>Deadline: {new Date(selectedJob.deadline).toLocaleDateString()}</span>
@@ -172,6 +222,46 @@ export default function Jobs() {
                 <span>Posted {new Date(selectedJob.created_at).toLocaleDateString()}</span>
               </div>
             </div>
+
+            {/* Apply Section for Citizens */}
+            {user?.role === 'CITIZEN' && (
+              application ? (
+                <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl p-4">
+                  <CheckCircle className="text-green-600" size={22} />
+                  <div>
+                    <p className="font-bold text-green-700">Application Submitted!</p>
+                    <p className="text-xs text-green-600">Status: <span className="font-semibold">{application.status}</span> · Applied {new Date(application.applied_at).toLocaleDateString()}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <label className="block text-sm font-bold text-gray-700">Upload Resume (PDF)</label>
+                  <label className={clsx(
+                    'flex items-center gap-3 border-2 border-dashed rounded-xl p-4 cursor-pointer transition-colors',
+                    resumeFile ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-blue-300'
+                  )}>
+                    <Upload size={20} className="text-blue-500" />
+                    <span className="text-sm text-gray-600">
+                      {resumeFile ? resumeFile.name : 'Click to select your resume (PDF, DOC, DOCX)'}
+                    </span>
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx"
+                      className="hidden"
+                      onChange={(e) => setResumeFile(e.target.files?.[0] || null)}
+                    />
+                  </label>
+                  {applyError && <p className="text-red-500 text-sm">{applyError}</p>}
+                  <button
+                    onClick={handleApply}
+                    disabled={!resumeFile || applyLoading}
+                    className="w-full bg-[#3182CE] text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  >
+                    {applyLoading ? <Loader2 className="animate-spin" size={18} /> : <><ArrowRight size={18} /> Apply Now</>}
+                  </button>
+                </div>
+              )
+            )}
           </div>
         </div>
       )}
