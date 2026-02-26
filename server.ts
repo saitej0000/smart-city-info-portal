@@ -2,7 +2,7 @@ import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import Database from 'better-sqlite3';
+import { createClient } from '@supabase/supabase-js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
@@ -33,80 +33,15 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 const JWT_SECRET = process.env.JWT_SECRET || 'smart-city-secret-key-2026';
-const db = new Database('city.db');
 
-// Initialize Database
-db.exec(`
-  CREATE TABLE IF NOT EXISTS departments (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    description TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,
-    role TEXT NOT NULL CHECK(role IN ('CITIZEN', 'DEPT_ADMIN', 'SUPER_ADMIN')),
-    department_id INTEGER,
-    FOREIGN KEY(department_id) REFERENCES departments(id)
-  );
-
-  CREATE TABLE IF NOT EXISTS complaints (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    citizen_id INTEGER NOT NULL,
-    department_id INTEGER NOT NULL,
-    category TEXT NOT NULL,
-    description TEXT NOT NULL,
-    status TEXT DEFAULT 'PENDING' CHECK(status IN ('PENDING', 'IN_PROGRESS', 'RESOLVED')),
-    latitude REAL,
-    longitude REAL,
-    image_url TEXT,
-    resolution_notes TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY(citizen_id) REFERENCES users(id),
-    FOREIGN KEY(department_id) REFERENCES departments(id)
-  );
-
-  CREATE TABLE IF NOT EXISTS alerts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    message TEXT NOT NULL,
-    type TEXT NOT NULL CHECK(type IN ('EMERGENCY', 'WEATHER', 'TRAFFIC', 'HEALTH')),
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
-
-  CREATE TABLE IF NOT EXISTS jobs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    department TEXT NOT NULL,
-    description TEXT NOT NULL,
-    deadline DATE NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
-`);
-
-// Seed initial data if empty
-const deptCount = db.prepare('SELECT COUNT(*) as count FROM departments').get() as { count: number };
-if (deptCount.count === 0) {
-  const insertDept = db.prepare('INSERT INTO departments (name, description) VALUES (?, ?)');
-  insertDept.run('Waste Management', 'Handles city-wide garbage collection and recycling.');
-  insertDept.run('Transport', 'Manages public transit, roads, and traffic signals.');
-  insertDept.run('Water & Power', 'Ensures stable supply of water and electricity.');
-  insertDept.run('Public Safety', 'Police, fire, and emergency response services.');
-
-  // Create Super Admin
-  const hashedPassword = bcrypt.hashSync('admin123', 10);
-  db.prepare('INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)').run(
-    'Super Admin', 'admin@smartcity.gov', hashedPassword, 'SUPER_ADMIN'
-  );
-
-  // Create a Dept Admin
-  db.prepare('INSERT INTO users (name, email, password, role, department_id) VALUES (?, ?, ?, ?, ?)').run(
-    'Waste Manager', 'waste@smartcity.gov', hashedPassword, 'DEPT_ADMIN', 1
-  );
+// Initialize Supabase Client (bypassing RLS with Service Role Key)
+const supabaseUrl = process.env.SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY || '';
+if (!supabaseUrl || !supabaseKey) {
+  console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_KEY in .env");
+  process.exit(1);
 }
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function startServer() {
   const app = express();
@@ -114,17 +49,22 @@ async function startServer() {
   app.use('/uploads', express.static(uploadDir));
 
   // --- Auth Middleware ---
-  const authenticateToken = (req: any, res: any, next: any) => {
+  const authenticateToken = async (req: any, res: any, next: any) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
     if (!token) return res.sendStatus(401);
 
-    jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
+    jwt.verify(token, JWT_SECRET, async (err: any, user: any) => {
       if (err) return res.sendStatus(403);
-      
+
       // Verify user still exists in DB
-      const dbUser = db.prepare('SELECT id, role, department_id FROM users WHERE id = ?').get(user.id);
-      if (!dbUser) return res.sendStatus(401);
+      const { data: dbUser, error } = await supabase
+        .from('users')
+        .select('id, role, department_id')
+        .eq('id', user.id)
+        .single();
+
+      if (error || !dbUser) return res.sendStatus(401);
 
       req.user = { ...user, ...dbUser }; // Refresh role/dept in case it changed
       next();
@@ -142,23 +82,34 @@ async function startServer() {
     res.json({ url: imageUrl });
   });
 
-  app.post('/api/auth/register', (req, res) => {
+  app.post('/api/auth/register', async (req, res) => {
     const { name, email, password } = req.body;
     try {
       const hashedPassword = bcrypt.hashSync(password, 10);
-      const result = db.prepare('INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)').run(
-        name, email, hashedPassword, 'CITIZEN'
-      );
-      res.status(201).json({ id: result.lastInsertRowid });
-    } catch (e) {
-      res.status(400).json({ error: 'Email already exists' });
+      const { data, error } = await supabase
+        .from('users')
+        .insert([{ name, email, password: hashedPassword, role: 'CITIZEN' }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      res.status(201).json({ id: data.id });
+    } catch (e: any) {
+      console.error(e);
+      res.status(400).json({ error: 'Email already exists or registration failed' });
     }
   });
 
-  app.post('/api/auth/login', (req, res) => {
+  app.post('/api/auth/login', async (req, res) => {
     const { email, password } = req.body;
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as any;
-    if (!user || !bcrypt.compareSync(password, user.password)) {
+
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .single();
+
+    if (error || !user || !bcrypt.compareSync(password, user.password as string)) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     const token = jwt.sign({ id: user.id, role: user.role, deptId: user.department_id }, JWT_SECRET);
@@ -166,188 +117,272 @@ async function startServer() {
   });
 
   // Complaints
-  app.get('/api/complaints/public', authenticateToken, (req: any, res) => {
-    const complaints = db.prepare(`
-      SELECT c.id, c.category, c.description, c.status, c.latitude, c.longitude, c.image_url, c.created_at, d.name as dept_name
-      FROM complaints c
-      JOIN departments d ON c.department_id = d.id
-      ORDER BY created_at DESC
-    `).all();
-    res.json(complaints);
+  app.get('/api/complaints/public', authenticateToken, async (req: any, res) => {
+    const { data, error } = await supabase
+      .from('complaints')
+      .select(`
+        id, category, description, status, latitude, longitude, image_url, created_at,
+        departments:department_id(name)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    // Flatten department name to 'dept_name' to match previous structure
+    const mapped = (data || []).map((c: any) => ({
+      ...c,
+      dept_name: c.departments?.name
+    }));
+
+    res.json(mapped);
   });
 
-  app.get('/api/complaints', authenticateToken, (req: any, res) => {
-    let complaints;
-    if (req.user.role === 'SUPER_ADMIN') {
-      complaints = db.prepare(`
-        SELECT c.*, u.name as citizen_name, d.name as dept_name 
-        FROM complaints c 
-        JOIN users u ON c.citizen_id = u.id 
-        JOIN departments d ON c.department_id = d.id
-        ORDER BY created_at DESC
-      `).all();
-    } else if (req.user.role === 'DEPT_ADMIN') {
-      complaints = db.prepare(`
-        SELECT c.*, u.name as citizen_name, d.name as dept_name 
-        FROM complaints c 
-        JOIN users u ON c.citizen_id = u.id 
-        JOIN departments d ON c.department_id = d.id
-        WHERE c.department_id = ?
-        ORDER BY created_at DESC
-      `).all(req.user.deptId);
-    } else {
-      complaints = db.prepare(`
-        SELECT c.*, d.name as dept_name 
-        FROM complaints c 
-        JOIN departments d ON c.department_id = d.id
-        WHERE citizen_id = ?
-        ORDER BY created_at DESC
-      `).all(req.user.id);
+  app.get('/api/complaints', authenticateToken, async (req: any, res) => {
+    let query = supabase
+      .from('complaints')
+      .select(`
+        *,
+        users:citizen_id(name),
+        departments:department_id(name)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (req.user.role === 'DEPT_ADMIN') {
+      query = query.eq('department_id', req.user.deptId);
+    } else if (req.user.role === 'CITIZEN') {
+      query = query.eq('citizen_id', req.user.id);
     }
-    res.json(complaints);
+    // SUPER_ADMIN gets all unfiltered
+
+    const { data, error } = await query;
+    if (error) return res.status(500).json({ error: error.message });
+
+    const mapped = (data || []).map((c: any) => ({
+      ...c,
+      citizen_name: c.users?.name,
+      dept_name: c.departments?.name
+    }));
+    res.json(mapped);
   });
 
-  app.get('/api/complaints/:id', authenticateToken, (req: any, res) => {
-    const complaint = db.prepare(`
-      SELECT c.*, u.name as citizen_name, d.name as dept_name 
-      FROM complaints c 
-      JOIN users u ON c.citizen_id = u.id 
-      JOIN departments d ON c.department_id = d.id
-      WHERE c.id = ?
-    `).get(req.params.id);
+  app.get('/api/complaints/:id', authenticateToken, async (req: any, res) => {
+    const { data: complaint, error } = await supabase
+      .from('complaints')
+      .select(`
+        *,
+        users:citizen_id(name),
+        departments:department_id(name)
+      `)
+      .eq('id', req.params.id)
+      .single();
 
-    if (!complaint) return res.sendStatus(404);
+    if (error || !complaint) return res.sendStatus(404);
 
     // Access control
-    if (req.user.role === 'CITIZEN' && (complaint as any).citizen_id !== req.user.id) {
+    if (req.user.role === 'CITIZEN' && complaint.citizen_id !== req.user.id) {
       return res.sendStatus(403);
     }
-    if (req.user.role === 'DEPT_ADMIN' && (complaint as any).department_id !== req.user.deptId) {
+    if (req.user.role === 'DEPT_ADMIN' && complaint.department_id !== req.user.deptId) {
       return res.sendStatus(403);
     }
 
-    res.json(complaint);
+    const mapped = {
+      ...complaint,
+      citizen_name: complaint.users?.name,
+      dept_name: complaint.departments?.name
+    };
+    res.json(mapped);
   });
 
-  app.post('/api/complaints', authenticateToken, (req: any, res) => {
+  app.post('/api/complaints', authenticateToken, async (req: any, res) => {
     const { department_id, category, description, latitude, longitude, image_url } = req.body;
-    try {
-      const result = db.prepare(`
-        INSERT INTO complaints (citizen_id, department_id, category, description, latitude, longitude, image_url)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(req.user.id, department_id, category, description, latitude, longitude, image_url);
-      res.status(201).json({ id: result.lastInsertRowid });
-    } catch (e: any) {
-      if (e.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
-        // Could be invalid department OR invalid user (if check skipped)
-        return res.status(400).json({ error: 'Invalid department or user reference' });
-      }
-      res.status(500).json({ error: 'Failed to create complaint' });
+    const { data, error } = await supabase
+      .from('complaints')
+      .insert([{
+        citizen_id: req.user.id,
+        department_id,
+        category,
+        description,
+        latitude,
+        longitude,
+        image_url
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error(error);
+      return res.status(500).json({ error: 'Failed to create complaint' });
     }
+    res.status(201).json({ id: data.id });
   });
 
-  app.patch('/api/complaints/:id', authenticateToken, (req: any, res) => {
+  app.patch('/api/complaints/:id', authenticateToken, async (req: any, res) => {
     const { status, resolution_notes } = req.body;
     if (req.user.role === 'CITIZEN') return res.sendStatus(403);
-    
-    db.prepare('UPDATE complaints SET status = ?, resolution_notes = ? WHERE id = ?')
-      .run(status, resolution_notes, req.params.id);
+
+    const { error } = await supabase
+      .from('complaints')
+      .update({ status, resolution_notes })
+      .eq('id', req.params.id);
+
+    if (error) return res.status(500).json({ error: error.message });
     res.json({ success: true });
   });
 
   // Alerts
-  app.get('/api/alerts', (req, res) => {
-    const alerts = db.prepare('SELECT * FROM alerts ORDER BY created_at DESC LIMIT 10').all();
-    res.json(alerts);
+  app.get('/api/alerts', async (req, res) => {
+    const { data, error } = await supabase
+      .from('alerts')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(10);
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
   });
 
-  app.post('/api/alerts', authenticateToken, (req: any, res) => {
+  app.post('/api/alerts', authenticateToken, async (req: any, res) => {
     if (req.user.role !== 'SUPER_ADMIN') return res.sendStatus(403);
     const { title, message, type } = req.body;
-    db.prepare('INSERT INTO alerts (title, message, type) VALUES (?, ?, ?)').run(title, message, type);
+    const { error } = await supabase
+      .from('alerts')
+      .insert([{ title, message, type }]);
+
+    if (error) return res.status(500).json({ error: error.message });
     res.status(201).json({ success: true });
   });
 
   // Jobs
-  app.get('/api/jobs', (req, res) => {
-    const jobs = db.prepare('SELECT * FROM jobs ORDER BY created_at DESC').all();
-    res.json(jobs);
+  app.get('/api/jobs', async (req, res) => {
+    const { data, error } = await supabase
+      .from('jobs')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data || []);
   });
 
-  app.post('/api/jobs', authenticateToken, (req: any, res) => {
+  app.post('/api/jobs', authenticateToken, async (req: any, res) => {
     if (req.user.role !== 'SUPER_ADMIN') return res.sendStatus(403);
     const { title, department, description, deadline } = req.body;
-    db.prepare('INSERT INTO jobs (title, department, description, deadline) VALUES (?, ?, ?, ?)').run(title, department, description, deadline);
+    const { error } = await supabase
+      .from('jobs')
+      .insert([{ title, department, description, deadline }]);
+    if (error) return res.status(500).json({ error: error.message });
     res.status(201).json({ success: true });
   });
 
   // Departments
-  app.get('/api/departments', (req, res) => {
-    const depts = db.prepare('SELECT * FROM departments').all();
-    res.json(depts);
+  app.get('/api/departments', async (req, res) => {
+    const { data, error } = await supabase.from('departments').select('*');
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data || []);
   });
 
   // Users (Super Admin)
-  app.get('/api/users', authenticateToken, (req: any, res) => {
+  app.get('/api/users', authenticateToken, async (req: any, res) => {
     if (req.user.role !== 'SUPER_ADMIN') return res.sendStatus(403);
-    const users = db.prepare(`
-      SELECT u.id, u.name, u.email, u.role, d.name as dept_name 
-      FROM users u 
-      LEFT JOIN departments d ON u.department_id = d.id
-      ORDER BY u.id DESC
-    `).all();
-    res.json(users);
+    const { data, error } = await supabase
+      .from('users')
+      .select(`
+        id, name, email, role,
+        departments:department_id(name)
+      `)
+      .order('id', { ascending: false });
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    const mapped = (data || []).map((u: any) => ({
+      ...u,
+      dept_name: u.departments?.name
+    }));
+    res.json(mapped);
   });
 
-  app.post('/api/users', authenticateToken, (req: any, res) => {
+  app.post('/api/users', authenticateToken, async (req: any, res) => {
     if (req.user.role !== 'SUPER_ADMIN') return res.sendStatus(403);
     const { name, email, password, role, department_id } = req.body;
-    
+
     try {
       const hashedPassword = bcrypt.hashSync(password, 10);
-      const result = db.prepare('INSERT INTO users (name, email, password, role, department_id) VALUES (?, ?, ?, ?, ?)').run(
-        name, email, hashedPassword, role, department_id || null
-      );
-      res.status(201).json({ id: result.lastInsertRowid });
+      const { data, error } = await supabase
+        .from('users')
+        .insert([{
+          name,
+          email,
+          password: hashedPassword,
+          role,
+          department_id: department_id || null
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      res.status(201).json({ id: data.id });
     } catch (e: any) {
-      if (e.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-        return res.status(400).json({ error: 'Email already exists' });
-      }
-      if (e.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
-        return res.status(400).json({ error: 'Invalid department selected' });
-      }
-      res.status(500).json({ error: 'Failed to create user' });
+      console.error(e);
+      res.status(400).json({ error: 'Failed to create user. Email may already exist or department invalid.' });
     }
   });
 
-  app.delete('/api/users/:id', authenticateToken, (req: any, res) => {
+  app.delete('/api/users/:id', authenticateToken, async (req: any, res) => {
     if (req.user.role !== 'SUPER_ADMIN') return res.sendStatus(403);
-    // Prevent deleting self
-    if (parseInt(req.params.id) === req.user.id) {
+
+    const targetUserId = parseInt(req.params.id);
+    if (targetUserId === req.user.id) {
       return res.status(400).json({ error: 'Cannot delete yourself' });
     }
-    
-    // Manually cascade delete complaints first
-    db.prepare('DELETE FROM complaints WHERE citizen_id = ?').run(req.params.id);
-    
-    db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id);
+
+    // Note: If you set ON DELETE CASCADE on your complaints table for citizen_id
+    // you wouldn't need to manually delete complaints here. We'll do both just in case.
+    await supabase.from('complaints').delete().eq('citizen_id', targetUserId);
+    const { error } = await supabase.from('users').delete().eq('id', targetUserId);
+
+    if (error) return res.status(500).json({ error: error.message });
     res.json({ success: true });
   });
 
   // Analytics (Super Admin)
-  app.get('/api/analytics', authenticateToken, (req: any, res) => {
+  app.get('/api/analytics', authenticateToken, async (req: any, res) => {
     if (req.user.role !== 'SUPER_ADMIN') return res.sendStatus(403);
-    const stats = {
-      totalComplaints: db.prepare('SELECT COUNT(*) as count FROM complaints').get(),
-      byStatus: db.prepare('SELECT status, COUNT(*) as count FROM complaints GROUP BY status').all(),
-      byDept: db.prepare(`
-        SELECT d.name, COUNT(c.id) as count 
-        FROM departments d 
-        LEFT JOIN complaints c ON d.id = c.department_id 
-        GROUP BY d.name
-      `).all()
-    };
-    res.json(stats);
+
+    try {
+      // Supabase JS doesn't have a single call for complex groupbys easily,
+      // so we have alternatives: RPC functions or doing group counts via code.
+      // Since data sizes are small, let's pull what we need or do parallel count queries.
+
+      const { count: totalComplaints } = await supabase
+        .from('complaints')
+        .select('*', { count: 'exact', head: true });
+
+      // Fetch all complaints to group by status & dept locally (viable for small datasets)
+      // For large datasets, use a Supabase Database Function (RPC) instead.
+      const { data: allComplaints } = await supabase
+        .from('complaints')
+        .select('status, department_id, departments(name)');
+
+      const byStatus: Record<string, number> = {};
+      const byDept: Record<string, number> = {};
+
+      if (allComplaints) {
+        allComplaints.forEach((c: any) => {
+          byStatus[c.status] = (byStatus[c.status] || 0) + 1;
+          const deptName = c.departments?.name || 'Unknown';
+          byDept[deptName] = (byDept[deptName] || 0) + 1;
+        });
+      }
+
+      const statusArr = Object.entries(byStatus).map(([status, count]) => ({ status, count }));
+      const deptArr = Object.entries(byDept).map(([name, count]) => ({ name, count }));
+
+      res.json({
+        totalComplaints: { count: totalComplaints || 0 },
+        byStatus: statusArr,
+        byDept: deptArr
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
   });
 
   // Vite integration
