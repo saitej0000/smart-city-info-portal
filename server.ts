@@ -95,8 +95,8 @@ async function startServer() {
       if (error) throw error;
       res.status(201).json({ id: data.id });
     } catch (e: any) {
-      console.error(e);
-      res.status(400).json({ error: 'Email already exists or registration failed' });
+      console.error("Supabase Registration Error:", e);
+      res.status(400).json({ error: e.message || 'Email already exists or registration failed' });
     }
   });
 
