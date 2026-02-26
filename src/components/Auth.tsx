@@ -40,7 +40,13 @@ export default function Auth() {
         body: JSON.stringify(data),
       });
 
-      const result = await response.json();
+      const responseText = await response.text();
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (e) {
+        throw new Error(`Server returned non-JSON: ${responseText.substring(0, 50)}... Make sure you are running 'npm run dev'.`);
+      }
       if (!response.ok) throw new Error(result.error || 'Something went wrong');
 
       if (isLogin) {
