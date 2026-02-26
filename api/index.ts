@@ -65,13 +65,12 @@ const authenticateToken = async (req: any, res: any, next: any) => {
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 const sendEmailOTP = async (email: string, code: string) => {
-    const nodemailer = await import('nodemailer');
-    const transporter = nodemailer.default.createTransport({
-        service: 'gmail',
-        auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
-    });
-    await transporter.sendMail({
-        from: `"CivicPulse" <${process.env.GMAIL_USER}>`,
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) throw new Error('Email service not configured');
+    const { Resend } = await import('resend');
+    const resend = new Resend(apiKey);
+    const { error } = await resend.emails.send({
+        from: 'CivicPulse <onboarding@resend.dev>',
         to: email,
         subject: 'Your CivicPulse Email Verification Code',
         html: `<div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;background:#f8fafc;border-radius:12px">
@@ -81,6 +80,7 @@ const sendEmailOTP = async (email: string, code: string) => {
           <p style="color:#718096">This code expires in 10 minutes.</p>
         </div>`,
     });
+    if (error) throw new Error(error.message);
 };
 
 const sendMobileOTP = async (mobile: string, code: string) => {
@@ -92,7 +92,12 @@ const sendMobileOTP = async (mobile: string, code: string) => {
         body: JSON.stringify({ route: 'otp', variables_values: code, numbers: mobile }),
     });
     const data = await resp.json();
-    if (!data.return) throw new Error('Failed to send SMS');
+    console.error('[Fast2SMS response]', JSON.stringify(data));
+    if (!data.return) {
+        // data.message is an array of error strings from Fast2SMS
+        const reason = Array.isArray(data.message) ? data.message.join(', ') : (data.message || 'Unknown error');
+        throw new Error(reason);
+    }
 };
 
 // OTP Endpoints
