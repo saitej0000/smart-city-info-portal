@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
+import multer from 'multer';
+import path from 'path';
 
 dotenv.config();
 
@@ -11,8 +13,34 @@ const supabaseUrl = process.env.SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// Memory storage for Vercel (no persistent filesystem)
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
 const app = express();
 app.use(express.json());
+
+// File upload endpoint — uploads to Supabase Storage
+app.post('/api/upload', async (req: any, res) => {
+    upload.single('image')(req, res as any, async (err) => {
+        if (err) return res.status(400).json({ error: err.message });
+        if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+        const ext = path.extname(req.file.originalname) || '.pdf';
+        const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
+
+        const { error: uploadError } = await supabase.storage
+            .from('resumes')
+            .upload(filename, req.file.buffer, {
+                contentType: req.file.mimetype,
+                upsert: false,
+            });
+
+        if (uploadError) return res.status(500).json({ error: uploadError.message });
+
+        const { data: publicUrlData } = supabase.storage.from('resumes').getPublicUrl(filename);
+        res.json({ url: publicUrlData.publicUrl });
+    });
+});
 
 // --- Auth Middleware ---
 const authenticateToken = async (req: any, res: any, next: any) => {
