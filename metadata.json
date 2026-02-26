@@ -1,0 +1,5 @@
+{
+  "name": "CivicPulse: Smart City Info Portal",
+  "description": "A centralized digital ecosystem for government services, citizen engagement, and real-time city information.",
+  "requestFramePermissions": ["geolocation"]
+}
