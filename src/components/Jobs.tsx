@@ -20,6 +20,7 @@ export default function Jobs() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedJob, setSelectedJob] = useState<any>(null);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
     resolver: zodResolver(jobSchema),
@@ -65,7 +66,7 @@ export default function Jobs() {
     }
   };
 
-  const filteredJobs = jobs.filter(job => 
+  const filteredJobs = jobs.filter(job =>
     job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     job.department.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -78,7 +79,7 @@ export default function Jobs() {
           <p className="text-gray-500">Latest government job postings and opportunities.</p>
         </div>
         {user?.role === 'SUPER_ADMIN' && (
-          <button 
+          <button
             onClick={() => setIsModalOpen(true)}
             className="bg-[#3182CE] text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all flex items-center gap-2"
           >
@@ -91,8 +92,8 @@ export default function Jobs() {
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex gap-4">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-          <input 
-            placeholder="Search jobs by title or department..." 
+          <input
+            placeholder="Search jobs by title or department..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none"
@@ -113,7 +114,7 @@ export default function Jobs() {
                   {new Date(job.created_at).toLocaleDateString()}
                 </span>
               </div>
-              
+
               <div className="mb-4 flex-1">
                 <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">{job.title}</h3>
                 <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
@@ -129,7 +130,7 @@ export default function Jobs() {
                     <Calendar size={16} />
                     <span>Deadline: {new Date(job.deadline).toLocaleDateString()}</span>
                   </div>
-                  <button className="text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-colors">
+                  <button onClick={() => setSelectedJob(job)} className="text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-colors">
                     <ArrowRight size={20} />
                   </button>
                 </div>
@@ -142,6 +143,38 @@ export default function Jobs() {
           </div>
         )}
       </div>
+
+      {/* Job Detail Modal */}
+      {selectedJob && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl">
+            <div className="flex items-start justify-between mb-4">
+              <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
+                <Briefcase size={28} />
+              </div>
+              <button onClick={() => setSelectedJob(null)} className="text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-1">{selectedJob.title}</h2>
+            <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
+              <Building2 size={16} />
+              <span>{selectedJob.department}</span>
+            </div>
+            <p className="text-gray-700 mb-6 leading-relaxed">{selectedJob.description}</p>
+            <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+              <div className="flex items-center gap-2 text-sm font-medium text-red-500">
+                <Calendar size={16} />
+                <span>Deadline: {new Date(selectedJob.deadline).toLocaleDateString()}</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-gray-400">
+                <Clock size={14} />
+                <span>Posted {new Date(selectedJob.created_at).toLocaleDateString()}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Post Job Modal */}
       {isModalOpen && (
