@@ -66,7 +66,7 @@ export default function Auth() {
     finally { setIsLoading(false); }
   };
 
-  // --- Register Step 1: Send Email OTP ---
+  // --- Register Step 1: Send Mobile OTP ---
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.email || !form.mobile || !form.password) {
@@ -75,20 +75,6 @@ export default function Auth() {
     if (form.mobile.length !== 10) return setError('Enter a valid 10-digit mobile number');
     setIsLoading(true); setError('');
     try {
-      await apiCall('/api/auth/send-email-otp', { email: form.email });
-      setOtp('');
-      setResendCooldown(60);
-      setStep('email-otp');
-    } catch (err: any) { setError(err.message); }
-    finally { setIsLoading(false); }
-  };
-
-  // --- Register Step 2: Verify Email OTP → Send Mobile OTP ---
-  const handleVerifyEmail = async () => {
-    if (otp.length !== 6) return setError('Enter the 6-digit OTP');
-    setIsLoading(true); setError('');
-    try {
-      await apiCall('/api/auth/verify-email-otp', { email: form.email, code: otp });
       await apiCall('/api/auth/send-mobile-otp', { mobile: form.mobile });
       setOtp('');
       setResendCooldown(60);
@@ -97,7 +83,7 @@ export default function Auth() {
     finally { setIsLoading(false); }
   };
 
-  // --- Register Step 3: Verify Mobile OTP → Create Account ---
+  // --- Register Step 2: Verify Mobile OTP → Create Account ---
   const handleVerifyMobile = async () => {
     if (otp.length !== 6) return setError('Enter the 6-digit OTP');
     setIsLoading(true); setError('');
@@ -112,8 +98,7 @@ export default function Auth() {
   const handleResend = async () => {
     setError(''); setResendCooldown(60);
     try {
-      if (step === 'email-otp') await apiCall('/api/auth/send-email-otp', { email: form.email });
-      else await apiCall('/api/auth/send-mobile-otp', { mobile: form.mobile });
+      await apiCall('/api/auth/send-mobile-otp', { mobile: form.mobile });
     } catch (err: any) { setError(err.message); }
   };
 
@@ -212,34 +197,6 @@ export default function Auth() {
                   <button onClick={() => { setStep('login'); setError(''); }}
                     className="text-sm font-bold text-blue-600 hover:text-blue-700">
                     Already have an account? Sign In
-                  </button>
-                </div>
-              </>
-            )}
-
-            {/* ── EMAIL OTP ── */}
-            {step === 'email-otp' && (
-              <>
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="p-2 bg-blue-50 rounded-xl"><Mail className="text-blue-600" size={24} /></div>
-                  <div>
-                    <h2 className="text-xl font-bold text-gray-900">Verify Email</h2>
-                    <p className="text-sm text-gray-500">OTP sent to <strong>{form.email}</strong></p>
-                  </div>
-                </div>
-                {/* Step indicator */}
-                <div className="flex items-center gap-2 mb-6">
-                  <div className="flex-1 h-1.5 bg-blue-500 rounded-full" />
-                  <div className="flex-1 h-1.5 bg-gray-200 rounded-full" />
-                </div>
-                <div className="space-y-4">
-                  <OTPInput value={otp} onChange={v => { setOtp(v); setError(''); }} />
-                  <button disabled={isLoading || otp.length !== 6} onClick={handleVerifyEmail} className={btnCls}>
-                    {isLoading ? <Loader2 className="animate-spin" /> : <><span>Verify Email</span><ArrowRight size={20} /></>}
-                  </button>
-                  <button onClick={handleResend} disabled={resendCooldown > 0}
-                    className="w-full text-sm text-blue-600 hover:text-blue-700 font-medium disabled:text-gray-400">
-                    {resendCooldown > 0 ? `Resend OTP in ${resendCooldown}s` : 'Resend OTP'}
                   </button>
                 </div>
               </>
