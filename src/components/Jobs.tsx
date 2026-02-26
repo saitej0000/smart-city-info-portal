@@ -82,10 +82,25 @@ export default function Jobs() {
     }
   };
 
-  const filteredJobs = jobs.filter(job =>
-    job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    job.department.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const [deptFilter, setDeptFilter] = useState('All');
+  const [sortBy, setSortBy] = useState<'newest' | 'deadline'>('newest');
+  const [appliedOnly, setAppliedOnly] = useState(false);
+
+  // Extract unique departments for dropdown
+  const departments = ['All', ...Array.from(new Set(jobs.map((j: any) => j.department).filter(Boolean)))];
+
+  const filteredJobs = jobs
+    .filter(job =>
+      (job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        job.department.toLowerCase().includes(searchTerm.toLowerCase())) &&
+      (deptFilter === 'All' || job.department === deptFilter) &&
+      (!appliedOnly || appliedJobIds.has(job.id))
+    )
+    .sort((a: any, b: any) =>
+      sortBy === 'deadline'
+        ? new Date(a.deadline).getTime() - new Date(b.deadline).getTime()
+        : new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
 
   const openJobDetail = async (job: any) => {
     setSelectedJob(job);
@@ -152,8 +167,9 @@ export default function Jobs() {
         )}
       </div>
 
-      <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex gap-4">
-        <div className="flex-1 relative">
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-3">
+        {/* Search */}
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
           <input
             placeholder="Search jobs by title or department..."
@@ -161,6 +177,50 @@ export default function Jobs() {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none"
           />
+        </div>
+        {/* Filter Controls */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Department Filter */}
+          <select
+            value={deptFilter}
+            onChange={(e) => setDeptFilter(e.target.value)}
+            className="px-3 py-2 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+          >
+            {departments.map(d => <option key={d}>{d}</option>)}
+          </select>
+          {/* Sort By */}
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as any)}
+            className="px-3 py-2 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+          >
+            <option value="newest">Newest First</option>
+            <option value="deadline">Deadline (Soonest)</option>
+          </select>
+          {/* Applied Only toggle for citizens */}
+          {user?.role === 'CITIZEN' && (
+            <button
+              onClick={() => setAppliedOnly(p => !p)}
+              className={clsx(
+                'flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-colors',
+                appliedOnly
+                  ? 'bg-green-100 border-green-300 text-green-700'
+                  : 'bg-white border-gray-200 text-gray-500 hover:border-green-300'
+              )}
+            >
+              <CheckCircle size={16} />
+              Applied Only
+            </button>
+          )}
+          {/* Clear filters */}
+          {(searchTerm || deptFilter !== 'All' || appliedOnly || sortBy !== 'newest') && (
+            <button
+              onClick={() => { setSearchTerm(''); setDeptFilter('All'); setAppliedOnly(false); setSortBy('newest'); }}
+              className="px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-500 hover:text-red-500 hover:border-red-200 transition-colors"
+            >
+              Clear Filters
+            </button>
+          )}
         </div>
       </div>
 
