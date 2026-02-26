@@ -1,11 +1,10 @@
 import React from 'react';
 import { useAuthStore } from '../store';
 import { useNavigate } from 'react-router-dom';
-import { ShieldCheck, ArrowRight, Loader2, Mail, Phone, CheckCircle } from 'lucide-react';
+import { ShieldCheck, ArrowRight, Loader2, Mail, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-// Steps: 'login' | 'register' | 'email-otp' | 'mobile-otp' | 'success'
-type Step = 'login' | 'register' | 'email-otp' | 'mobile-otp' | 'success';
+type Step = 'login' | 'register' | 'email-otp' | 'success';
 
 const OTPInput = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
   <input
@@ -26,13 +25,11 @@ export default function Auth() {
   const [otp, setOtp] = React.useState('');
   const [resendCooldown, setResendCooldown] = React.useState(0);
 
-  // Form fields
   const [form, setForm] = React.useState({ name: '', email: '', mobile: '', password: '' });
 
   const { setAuth } = useAuthStore();
   const navigate = useNavigate();
 
-  // Cooldown timer
   React.useEffect(() => {
     if (resendCooldown > 0) {
       const t = setTimeout(() => setResendCooldown(c => c - 1), 1000);
@@ -49,7 +46,7 @@ export default function Auth() {
     const text = await res.text();
     let data: any;
     try { data = JSON.parse(text); }
-    catch { throw new Error(`Server returned non-JSON: ${text.slice(0, 60)}...`); }
+    catch { throw new Error(`Server error: ${text.slice(0, 60)}...`); }
     if (!res.ok) throw new Error(data.error || 'Something went wrong');
     return data;
   };
@@ -66,7 +63,7 @@ export default function Auth() {
     finally { setIsLoading(false); }
   };
 
-  // --- Register Step 1: Send Mobile OTP ---
+  // --- Register Step 1: Send Email OTP ---
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.email || !form.mobile || !form.password) {
@@ -75,30 +72,30 @@ export default function Auth() {
     if (form.mobile.length !== 10) return setError('Enter a valid 10-digit mobile number');
     setIsLoading(true); setError('');
     try {
-      await apiCall('/api/auth/send-mobile-otp', { mobile: form.mobile });
+      await apiCall('/api/auth/send-email-otp', { email: form.email });
       setOtp('');
       setResendCooldown(60);
-      setStep('mobile-otp');
+      setStep('email-otp');
     } catch (err: any) { setError(err.message); }
     finally { setIsLoading(false); }
   };
 
-  // --- Register Step 2: Verify Mobile OTP → Create Account ---
-  const handleVerifyMobile = async () => {
+  // --- Register Step 2: Verify Email OTP → Create Account ---
+  const handleVerifyEmail = async () => {
     if (otp.length !== 6) return setError('Enter the 6-digit OTP');
     setIsLoading(true); setError('');
     try {
-      await apiCall('/api/auth/verify-mobile-otp', { mobile: form.mobile, code: otp });
+      await apiCall('/api/auth/verify-email-otp', { email: form.email, code: otp });
       await apiCall('/api/auth/register', { name: form.name, email: form.email, mobile: form.mobile, password: form.password });
       setStep('success');
     } catch (err: any) { setError(err.message); }
     finally { setIsLoading(false); }
   };
 
-  const handleResend = async () => {
+  const handleResendEmail = async () => {
     setError(''); setResendCooldown(60);
     try {
-      await apiCall('/api/auth/send-mobile-otp', { mobile: form.mobile });
+      await apiCall('/api/auth/send-email-otp', { email: form.email });
     } catch (err: any) { setError(err.message); }
   };
 
@@ -108,7 +105,6 @@ export default function Auth() {
   return (
     <div className="min-h-screen bg-[#F7FAFC] flex items-center justify-center p-4">
       <div className="max-w-md w-full">
-        {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-[#3182CE] rounded-2xl shadow-lg shadow-blue-200 mb-4">
             <ShieldCheck className="text-white w-8 h-8" />
@@ -126,7 +122,6 @@ export default function Auth() {
             transition={{ duration: 0.2 }}
             className="bg-white p-8 rounded-3xl shadow-xl border border-gray-100"
           >
-            {/* Error */}
             {error && (
               <div className="mb-5 p-4 bg-red-50 text-red-600 rounded-xl text-sm font-medium border border-red-100">
                 {error}
@@ -202,27 +197,26 @@ export default function Auth() {
               </>
             )}
 
-            {/* ── MOBILE OTP ── */}
-            {step === 'mobile-otp' && (
+            {/* ── EMAIL OTP ── */}
+            {step === 'email-otp' && (
               <>
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="p-2 bg-green-50 rounded-xl"><Phone className="text-green-600" size={24} /></div>
+                  <div className="p-2 bg-blue-50 rounded-xl"><Mail className="text-blue-600" size={24} /></div>
                   <div>
-                    <h2 className="text-xl font-bold text-gray-900">Verify Mobile</h2>
-                    <p className="text-sm text-gray-500">OTP sent to <strong>+91 {form.mobile}</strong></p>
+                    <h2 className="text-xl font-bold text-gray-900">Verify Your Email</h2>
+                    <p className="text-sm text-gray-500">OTP sent to <strong>{form.email}</strong></p>
                   </div>
                 </div>
-                {/* Step indicator */}
                 <div className="flex items-center gap-2 mb-6">
                   <div className="flex-1 h-1.5 bg-blue-500 rounded-full" />
                   <div className="flex-1 h-1.5 bg-blue-500 rounded-full" />
                 </div>
                 <div className="space-y-4">
                   <OTPInput value={otp} onChange={v => { setOtp(v); setError(''); }} />
-                  <button disabled={isLoading || otp.length !== 6} onClick={handleVerifyMobile} className={btnCls}>
+                  <button disabled={isLoading || otp.length !== 6} onClick={handleVerifyEmail} className={btnCls}>
                     {isLoading ? <Loader2 className="animate-spin" /> : <><span>Verify & Create Account</span><ArrowRight size={20} /></>}
                   </button>
-                  <button onClick={handleResend} disabled={resendCooldown > 0}
+                  <button onClick={handleResendEmail} disabled={resendCooldown > 0}
                     className="w-full text-sm text-blue-600 hover:text-blue-700 font-medium disabled:text-gray-400">
                     {resendCooldown > 0 ? `Resend OTP in ${resendCooldown}s` : 'Resend OTP'}
                   </button>
@@ -237,7 +231,7 @@ export default function Auth() {
                   <CheckCircle className="text-green-600 w-8 h-8" />
                 </div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">Account Created!</h2>
-                <p className="text-gray-500 mb-6">Your email and mobile have been verified successfully.</p>
+                <p className="text-gray-500 mb-6">Your email has been verified successfully.</p>
                 <button onClick={() => { setStep('login'); setError(''); setForm({ name: '', email: '', mobile: '', password: '' }); }}
                   className={btnCls}>
                   Sign In Now <ArrowRight size={20} />
