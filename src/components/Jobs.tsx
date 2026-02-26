@@ -25,6 +25,7 @@ export default function Jobs() {
   const [applyLoading, setApplyLoading] = useState(false);
   const [applyError, setApplyError] = useState('');
   const [application, setApplication] = useState<any>(null);
+  const [appliedJobIds, setAppliedJobIds] = useState<Set<number>>(new Set());
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
     resolver: zodResolver(jobSchema),
@@ -32,6 +33,7 @@ export default function Jobs() {
 
   useEffect(() => {
     fetchJobs();
+    if (token && user?.role === 'CITIZEN') fetchMyApplications();
   }, []);
 
   const fetchJobs = async () => {
@@ -42,6 +44,16 @@ export default function Jobs() {
     } catch (error) {
       console.error('Failed to fetch jobs');
     }
+  };
+
+  const fetchMyApplications = async () => {
+    try {
+      const res = await fetch('/api/jobs/applications/mine', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setAppliedJobIds(new Set(data.map((a: any) => a.job_id)));
+    } catch { }
   };
 
   const onSubmit = async (data: any) => {
@@ -114,6 +126,7 @@ export default function Jobs() {
       const applyData = await applyRes.json();
       if (!applyRes.ok) throw new Error(applyData.error || 'Application failed');
       setApplication({ id: applyData.id, status: 'PENDING', applied_at: new Date().toISOString() });
+      setAppliedJobIds(prev => new Set([...prev, selectedJob.id]));
     } catch (e: any) {
       setApplyError(e.message);
     } finally {
@@ -159,10 +172,17 @@ export default function Jobs() {
                 <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
                   <Briefcase size={24} />
                 </div>
-                <span className="text-xs font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-lg flex items-center gap-1">
-                  <Clock size={12} />
-                  {new Date(job.created_at).toLocaleDateString()}
-                </span>
+                <div className="flex items-center gap-2">
+                  {appliedJobIds.has(job.id) && (
+                    <span className="flex items-center gap-1 text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded-lg">
+                      <CheckCircle size={12} /> Applied
+                    </span>
+                  )}
+                  <span className="text-xs font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-lg flex items-center gap-1">
+                    <Clock size={12} />
+                    {new Date(job.created_at).toLocaleDateString()}
+                  </span>
+                </div>
               </div>
 
               <div className="mb-4 flex-1">

@@ -188,6 +188,12 @@ app.get('/api/jobs/:id/application', authenticateToken, async (req: any, res) =>
     res.json(data || null);
 });
 
+app.get('/api/jobs/applications/mine', authenticateToken, async (req: any, res) => {
+    const { data } = await supabase.from('job_applications')
+        .select('job_id, status').eq('citizen_id', req.user.id);
+    res.json(data || []);
+});
+
 // Departments
 app.get('/api/departments', async (req, res) => {
     const { data, error } = await supabase.from('departments').select('*');
