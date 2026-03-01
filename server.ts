@@ -306,6 +306,20 @@ async function startServer() {
     res.json(data || []);
   });
 
+  app.post('/api/departments', authenticateToken, async (req: any, res) => {
+    if (req.user.role !== 'SUPER_ADMIN') return res.sendStatus(403);
+    const { name, description } = req.body;
+
+    const { data, error } = await supabase
+      .from('departments')
+      .insert([{ name, description }])
+      .select()
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.status(201).json(data);
+  });
+
   // Users (Super Admin)
   app.get('/api/users', authenticateToken, async (req: any, res) => {
     if (req.user.role !== 'SUPER_ADMIN') return res.sendStatus(403);
