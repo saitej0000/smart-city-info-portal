@@ -2,9 +2,13 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { categories as baseCategories } from '../data/exploreData';
 import { extraCategories } from '../data/exploreDataExtra';
+import { massiveDataInjection } from '../data/exploreDataMassive';
 import { MapPin, Star, ChevronRight, Search } from 'lucide-react';
 
-const categories = [...baseCategories, ...extraCategories];
+const categories = [...baseCategories, ...extraCategories].map(cat => ({
+    ...cat,
+    places: [...cat.places, ...(massiveDataInjection[cat.slug] || [])]
+}));
 
 export default function Explore() {
     const [searchTerm, setSearchTerm] = useState('');

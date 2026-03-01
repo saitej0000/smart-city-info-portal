@@ -2,8 +2,12 @@ import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { categories as baseCategories } from '../data/exploreData';
 import { extraCategories } from '../data/exploreDataExtra';
+import { massiveDataInjection } from '../data/exploreDataMassive';
 
-const categories = [...baseCategories, ...extraCategories];
+const categories = [...baseCategories, ...extraCategories].map(cat => ({
+    ...cat,
+    places: [...cat.places, ...(massiveDataInjection[cat.slug] || [])]
+}));
 import { MapPin, Star, Search, ArrowLeft, ChevronDown } from 'lucide-react';
 
 export default function ExploreCategory() {
