@@ -42,6 +42,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [showNotifications, setShowNotifications] = React.useState(false);
+  const [alerts, setAlerts] = React.useState<any[]>([]);
+
+  React.useEffect(() => {
+    fetch('/api/alerts').then(r => r.json()).then(data => setAlerts(data)).catch(() => { });
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -61,6 +67,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { name: 'Departments', path: '/admin/departments', icon: Building2, roles: ['SUPER_ADMIN'] },
     { name: 'Users', path: '/admin/users', icon: Users, roles: ['SUPER_ADMIN'] },
   ].filter(item => item.roles.includes(user?.role || ''));
+
+  const alertTypeColor: Record<string, string> = {
+    WEATHER: 'bg-blue-50 border-l-blue-400',
+    TRAFFIC: 'bg-yellow-50 border-l-yellow-400',
+    EMERGENCY: 'bg-red-50 border-l-red-400',
+    HEALTH: 'bg-green-50 border-l-green-400',
+  };
 
   return (
     <div className="h-screen overflow-hidden bg-[#F7FAFC] flex flex-col md:flex-row">
@@ -173,13 +186,54 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
               SECURE PORTAL ACTIVE
             </div>
-            <button className="relative p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
-              <Bell size={20} />
-              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[9px] rounded-full flex items-center justify-center font-bold">3</span>
-            </button>
-            <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
+
+            {/* Bell - Notifications Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="relative p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+              >
+                <Bell size={20} />
+                {alerts.length > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[9px] rounded-full flex items-center justify-center font-bold">
+                    {alerts.length > 9 ? '9+' : alerts.length}
+                  </span>
+                )}
+              </button>
+
+              {showNotifications && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)} />
+                  <div className="absolute right-0 top-12 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+                    <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+                      <h3 className="font-bold text-gray-900 text-sm">Notifications</h3>
+                      <span className="text-xs font-bold text-[#3182CE] bg-blue-50 px-2 py-0.5 rounded-full">{alerts.length} new</span>
+                    </div>
+                    <div className="max-h-80 overflow-y-auto">
+                      {alerts.length > 0 ? alerts.slice(0, 8).map((alert: any) => (
+                        <div key={alert.id} className={`p-3 border-l-4 border-b border-gray-50 ${alertTypeColor[alert.type] || 'bg-gray-50 border-l-gray-300'}`}>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-[9px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded">{alert.type}</span>
+                            <span className="text-[10px] text-gray-400">
+                              {new Date(alert.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <p className="text-xs font-semibold text-gray-800">{alert.title}</p>
+                          <p className="text-[11px] text-gray-500 line-clamp-2">{alert.message}</p>
+                        </div>
+                      )) : (
+                        <div className="p-6 text-center text-gray-400 text-sm">No notifications</div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* User Icon - Navigate to Profile */}
+            <Link to="/profile" className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
               <User size={20} />
-            </button>
+            </Link>
           </div>
         </header>
 
