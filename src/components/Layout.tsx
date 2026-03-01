@@ -11,7 +11,8 @@ import {
   Building2,
   Users,
   Globe,
-  User
+  User,
+  Compass
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store';
@@ -30,6 +31,7 @@ const pageTitle: Record<string, string> = {
   '/complaints/new': 'Complaints',
   '/map': 'City Map',
   '/jobs': 'Jobs',
+  '/explore': 'Explore',
   '/profile': 'Profile',
   '/admin/departments': 'Departments',
   '/admin/users': 'Users',
@@ -54,6 +56,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { name: 'Complaints', path: '/complaints', icon: FileText, roles: ['CITIZEN', 'DEPT_ADMIN', 'SUPER_ADMIN'] },
     { name: 'City Map', path: '/map', icon: Map, roles: ['CITIZEN', 'DEPT_ADMIN', 'SUPER_ADMIN'] },
     { name: 'Jobs', path: '/jobs', icon: Briefcase, roles: ['CITIZEN', 'SUPER_ADMIN'] },
+    { name: 'Explore', path: '/explore', icon: Compass, roles: ['CITIZEN', 'DEPT_ADMIN', 'SUPER_ADMIN'] },
     { name: 'Profile', path: '/profile', icon: User, roles: ['CITIZEN', 'DEPT_ADMIN', 'SUPER_ADMIN'] },
     { name: 'Departments', path: '/admin/departments', icon: Building2, roles: ['SUPER_ADMIN'] },
     { name: 'Users', path: '/admin/users', icon: Users, roles: ['SUPER_ADMIN'] },

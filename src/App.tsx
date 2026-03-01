@@ -11,6 +11,7 @@ import Jobs from './components/Jobs';
 import GovServices from './components/GovServices';
 import CityMap from './components/CityMap';
 import Profile from './components/Profile';
+import Explore from './components/Explore';
 import Departments from './components/admin/Departments';
 import Users from './components/admin/Users';
 
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="/complaints/:id" element={<ProtectedRoute><ComplaintDetails /></ProtectedRoute>} />
         <Route path="/map" element={<ProtectedRoute><CityMap /></ProtectedRoute>} />
         <Route path="/jobs" element={<ProtectedRoute><Jobs /></ProtectedRoute>} />
+        <Route path="/explore" element={<ProtectedRoute><Explore /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/admin/departments" element={<ProtectedRoute><Departments /></ProtectedRoute>} />
         <Route path="/admin/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
