@@ -4,15 +4,19 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMapEvents } from '
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
-// Fix for default Leaflet marker icons
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+// Fix for default Leaflet marker icons by importing from standard unpkg/leaflet CDNs or just raw
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Using raw URLs since CRA / Vite sometimes fails resolving dist images
+const iconUrl = 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png';
+const iconShadow = 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png';
 
 let DefaultIcon = L.icon({
-    iconUrl: icon,
-    shadowUrl: iconShadow,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41]
+  iconUrl: iconUrl,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41]
 });
 
 L.Marker.prototype.options.icon = DefaultIcon;
@@ -71,7 +75,7 @@ function RoutePlanner({ onClose }: { onClose: () => void }) {
             <X size={24} />
           </button>
         </div>
-        
+
         <div className="flex-1 relative">
           <MapContainer center={[17.3850, 78.4867]} zoom={13} style={{ height: '100%', width: '100%' }}>
             <TileLayer
@@ -140,7 +144,7 @@ export default function Transportation() {
   return (
     <div className="space-y-8">
       {showPlanner && <RoutePlanner onClose={() => setShowPlanner(false)} />}
-      
+
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Transportation</h1>
         <p className="text-gray-500">Smart mobility solutions at your fingertips.</p>
@@ -156,7 +160,7 @@ export default function Transportation() {
           <p className="text-gray-500 mb-6 flex-1">
             Access bus, metro, and train schedules with integrated route planning across all transportation modes.
           </p>
-          <button 
+          <button
             onClick={() => setShowPlanner(true)}
             className="bg-blue-600 text-white py-3 px-6 rounded-xl font-bold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
           >

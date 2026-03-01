@@ -12,7 +12,9 @@ import {
   Users,
   Globe,
   User,
-  Compass
+  Compass,
+  MapPin,
+  AlertTriangle
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store';

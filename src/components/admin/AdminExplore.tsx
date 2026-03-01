@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '../../store';
 import { Plus, Trash2, Search, MapPin, Star } from 'lucide-react';
-import { categories as baseCategories } from '../../../data/exploreData';
-import { extraCategories } from '../../../data/exploreDataExtra';
+import { categories as baseCategories } from '../../data/exploreData';
+import { extraCategories } from '../../data/exploreDataExtra';
 
 const ALL_CATEGORIES = [...baseCategories, ...extraCategories];
 
