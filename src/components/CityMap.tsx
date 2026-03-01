@@ -40,17 +40,8 @@ function RecenterMap({ location, target }: { location: [number, number] | null, 
   return null;
 }
 
-type InfraCategory = 'All' | 'Hospital' | 'EV Charger' | 'Tourism' | 'ATM';
-
-const localInfra = [
-  { name: 'NIMS Hospital', address: 'Panjagutta, Hyderabad', rating: 4.5, category: 'Hospital', lat: 17.3947, lng: 78.4753 },
-  { name: 'JNTU EV Station', address: 'Kukatpally, Hyderabad', rating: 4.8, category: 'EV Charger', lat: 17.4937, lng: 78.3916 },
-  { name: 'Tank Bund Heritage', address: 'Hussain Sagar, Hyderabad', rating: 4.7, category: 'Tourism', lat: 17.4239, lng: 78.4738 },
-  { name: 'GHMC Central Office', address: 'Tank Bund Rd, Hyderabad', rating: 4.2, category: 'Tourism', lat: 17.4156, lng: 78.4747 },
-  { name: 'Banjara Hills ATM', address: 'Road No. 1, Banjara Hills', rating: 4.0, category: 'ATM', lat: 17.4138, lng: 78.4462 },
-];
-
-const infraCategories: InfraCategory[] = ['All', 'Hospital', 'EV Charger', 'Tourism', 'ATM'];
+type StatusCategory = 'All' | 'PENDING' | 'IN_PROGRESS' | 'RESOLVED';
+const statusCategories: StatusCategory[] = ['All', 'PENDING', 'IN_PROGRESS', 'RESOLVED'];
 
 export default function CityMap() {
   const { token } = useAuthStore();
@@ -60,7 +51,7 @@ export default function CityMap() {
   const [targetLocation, setTargetLocation] = useState<[number, number] | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [infraCategory, setInfraCategory] = useState<InfraCategory>('All');
+  const [statusFilter, setStatusFilter] = useState<StatusCategory>('All');
 
   const defaultCenter: [number, number] = [17.3850, 78.4867];
 
@@ -80,10 +71,31 @@ export default function CityMap() {
     fetchComplaints();
   }, [token]);
 
-  const filteredInfra = localInfra.filter(i =>
-    (infraCategory === 'All' || i.category === infraCategory) &&
-    (!searchQuery || i.name.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredComplaints = complaints.filter(c => {
+    const matchesStatus = statusFilter === 'All' || c.status === statusFilter;
+    const matchesSearch = !searchQuery ||
+      c.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.category.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesStatus && matchesSearch;
+  });
+
+  const getCategoryEmoji = (category: string) => {
+    const cat = category.toLowerCase();
+    if (cat.includes('garbage') || cat.includes('waste')) return '🗑️';
+    if (cat.includes('power') || cat.includes('electric')) return '⚡';
+    if (cat.includes('water')) return '💧';
+    if (cat.includes('road') || cat.includes('transport')) return '🚌';
+    return '📋';
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'PENDING': return { text: 'PENDING', cls: 'text-yellow-600 bg-yellow-50' };
+      case 'IN_PROGRESS': return { text: 'IN PROGRESS', cls: 'text-blue-600 bg-blue-50' };
+      case 'RESOLVED': return { text: 'RESOLVED', cls: 'text-green-600 bg-green-50' };
+      default: return { text: status, cls: 'text-gray-600 bg-gray-50' };
+    }
+  };
 
   if (loading) {
     return (
@@ -107,7 +119,7 @@ export default function CityMap() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
             <input
               type="text"
-              placeholder="Search or ask AI for places..."
+              placeholder="Search complaints..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-10 py-2.5 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
@@ -116,48 +128,66 @@ export default function CityMap() {
               <Bot size={14} />
             </button>
           </div>
-          {/* Category Chips */}
+          {/* Status Filter Chips */}
           <div className="flex gap-2 mt-3 overflow-x-auto pb-1">
-            {infraCategories.map((cat) => (
+            {statusCategories.map((cat) => (
               <button
                 key={cat}
-                onClick={() => setInfraCategory(cat)}
-                className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all ${infraCategory === cat
+                onClick={() => setStatusFilter(cat)}
+                className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all ${statusFilter === cat
                   ? 'bg-[#3182CE] text-white'
                   : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-300'
                   }`}
               >
-                {cat === 'All' ? 'All' : cat.toUpperCase()}
+                {cat === 'All' ? 'All' : cat.replace('_', ' ')}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Local Infrastructure List */}
+        {/* Complaints List */}
         <div className="flex-1 overflow-y-auto">
-          <p className="px-4 pt-3 pb-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Local Infrastructure</p>
+          <p className="px-4 pt-3 pb-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+            Complaints ({filteredComplaints.length})
+          </p>
           <div className="px-3 space-y-1">
-            {filteredInfra.map((item, i) => (
-              <button
-                key={i}
-                onClick={() => setTargetLocation([item.lat, item.lng])}
-                className="w-full text-left p-3 rounded-xl hover:bg-blue-50 transition-all group flex items-center gap-3"
-              >
-                <div className="p-2 bg-gray-100 rounded-lg text-gray-500 group-hover:bg-blue-100 group-hover:text-[#3182CE] transition-colors flex-shrink-0">
-                  <Building2Icon category={item.category} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-semibold text-sm text-gray-900 group-hover:text-[#3182CE] transition-colors">{item.name}</h4>
-                  <p className="text-xs text-gray-500 truncate">{item.address}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="flex items-center gap-0.5 text-xs font-bold text-red-500">
-                      <Star size={10} fill="currentColor" /> {item.rating}
-                    </span>
-                    <span className="text-[9px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded">FUNCTIONAL</span>
+            {filteredComplaints.length === 0 ? (
+              <p className="text-center text-gray-400 text-sm py-6">No complaints found.</p>
+            ) : filteredComplaints.map((c) => {
+              const badge = getStatusBadge(c.status);
+              const hasLocation = c.latitude && c.longitude;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => {
+                    if (hasLocation) {
+                      setTargetLocation([c.latitude, c.longitude]);
+                      setSelectedId(c.id);
+                    }
+                  }}
+                  className={`w-full text-left p-3 rounded-xl transition-all group flex items-center gap-3 ${selectedId === c.id
+                      ? 'bg-blue-50 ring-1 ring-blue-300'
+                      : hasLocation
+                        ? 'hover:bg-blue-50 cursor-pointer'
+                        : 'opacity-60 cursor-default'
+                    }`}
+                >
+                  <div className="p-2 bg-gray-100 rounded-lg text-gray-500 group-hover:bg-blue-100 transition-colors flex-shrink-0 text-base">
+                    {getCategoryEmoji(c.category)}
                   </div>
-                </div>
-              </button>
-            ))}
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold text-sm text-gray-900 group-hover:text-[#3182CE] transition-colors truncate">
+                      {c.description.substring(0, 40)}{c.description.length > 40 ? '...' : ''}
+                    </h4>
+                    <p className="text-xs text-gray-500 truncate">{c.dept_name || c.category}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${badge.cls}`}>{badge.text}</span>
+                      <span className="text-[10px] text-gray-400">{new Date(c.created_at).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -198,7 +228,7 @@ export default function CityMap() {
               <Popup><div className="font-bold text-blue-600">You are here</div></Popup>
             </Marker>
           )}
-          {complaints.map((c) => {
+          {filteredComplaints.map((c) => {
             if (!c.latitude || !c.longitude) return null;
             return (
               <Marker
@@ -216,8 +246,8 @@ export default function CityMap() {
                   <div className="p-2 min-w-[200px]">
                     <div className="flex items-center gap-2 mb-2">
                       <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${c.status === 'RESOLVED' ? 'bg-green-100 text-green-700' :
-                        c.status === 'IN_PROGRESS' ? 'bg-orange-100 text-orange-700' :
-                          'bg-blue-100 text-blue-700'
+                          c.status === 'IN_PROGRESS' ? 'bg-orange-100 text-orange-700' :
+                            'bg-blue-100 text-blue-700'
                         }`}>{c.status.replace('_', ' ')}</span>
                       <span className="text-xs text-gray-500 font-bold">{c.category}</span>
                     </div>
@@ -247,14 +277,4 @@ export default function CityMap() {
       </div>
     </div>
   );
-}
-
-function Building2Icon({ category }: { category: string }) {
-  switch (category) {
-    case 'Hospital': return <span className="text-sm">🏥</span>;
-    case 'EV Charger': return <span className="text-sm">⚡</span>;
-    case 'Tourism': return <span className="text-sm">🏛️</span>;
-    case 'ATM': return <span className="text-sm">🏧</span>;
-    default: return <MapPin size={16} />;
-  }
 }
