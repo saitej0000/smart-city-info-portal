@@ -272,7 +272,6 @@ async function startServer() {
     res.status(201).json({ success: true });
   });
 
-  // Job Applications
   app.post('/api/jobs/:id/apply', authenticateToken, async (req: any, res) => {
     if (req.user.role !== 'CITIZEN') return res.status(403).json({ error: 'Only citizens can apply' });
     const { resume_url } = req.body;
@@ -285,6 +284,31 @@ async function startServer() {
       return res.status(500).json({ error: error.message });
     }
     res.status(201).json({ id: data.id });
+  });
+
+  // Fetch applicants for a specific job (Admin only)
+  app.get('/api/jobs/:id/applicants', authenticateToken, async (req: any, res) => {
+    if (req.user.role !== 'SUPER_ADMIN') return res.status(403).json({ error: 'Only admins can view applicants' });
+
+    // We need to join with the users table to get the applicant's name and email
+    const { data, error } = await supabase
+      .from('job_applications')
+      .select(`
+            id,
+            status,
+            applied_at,
+            resume_url,
+            citizen:users!job_applications_citizen_id_fkey(id, name, email)
+        `)
+      .eq('job_id', req.params.id)
+      .order('applied_at', { ascending: false });
+
+    if (error) {
+      console.error("Error fetching applicants:", error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json(data || []);
   });
 
   app.get('/api/jobs/:id/application', authenticateToken, async (req: any, res) => {

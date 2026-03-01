@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '../store';
-import { Briefcase, Calendar, Clock, Plus, Search, Building2, X, Loader2, ArrowRight, Upload, CheckCircle, Bookmark, Sparkles, Trash2, Bus, Zap, Droplets, Shield, Heart, MapPin } from 'lucide-react';
+import { Briefcase, Calendar, Clock, Plus, Search, Building2, X, Loader2, ArrowRight, Upload, CheckCircle, Bookmark, Sparkles, Trash2, Bus, Zap, Droplets, Shield, Heart, MapPin, Users, FileText } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -45,6 +45,11 @@ export default function Jobs() {
   const [deptFilter, setDeptFilter] = useState('All');
   const [sortBy, setSortBy] = useState<'newest' | 'deadline'>('newest');
 
+  // States for viewing applicants
+  const [isApplicantsModalOpen, setIsApplicantsModalOpen] = useState(false);
+  const [applicantsData, setApplicantsData] = useState<any[]>([]);
+  const [loadingApplicants, setLoadingApplicants] = useState(false);
+
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
     resolver: zodResolver(jobSchema),
   });
@@ -59,6 +64,23 @@ export default function Jobs() {
       const res = await fetch('/api/jobs');
       setJobs(await res.json());
     } catch { }
+  };
+
+  const fetchApplicants = async (jobId: string) => {
+    setLoadingApplicants(true);
+    setIsApplicantsModalOpen(true);
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/applicants`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setApplicantsData(await res.json());
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingApplicants(false);
+    }
   };
 
   const fetchMyApplications = async () => {
@@ -84,7 +106,7 @@ export default function Jobs() {
     } catch { } finally { setIsLoading(false); }
   };
 
-  const departments = Array.from(new Set(jobs.map((j: any) => j.department).filter(Boolean)));
+  const departments = Array.from(new Set(jobs.map((j: any) => j.department).filter(Boolean))) as string[];
   const deptCounts = departments.reduce((acc, d) => {
     acc[d] = jobs.filter(j => j.department === d).length;
     return acc;
@@ -264,17 +286,30 @@ export default function Jobs() {
                       </span>
                     </div>
                   </div>
-                  <div className="flex flex-col gap-2 flex-shrink-0">
+                  {user?.role === 'SUPER_ADMIN' ? (
+                    <button
+                      onClick={() => {
+                        setSelectedJob(job);
+                        fetchApplicants(job.id);
+                      }}
+                      className="bg-purple-500 text-white px-5 py-2 rounded-xl text-sm font-bold hover:bg-purple-600 transition-colors flex items-center gap-1"
+                    >
+                      View Applicants <Users size={14} />
+                    </button>
+                  ) : (
                     <button
                       onClick={() => openJobDetail(job)}
                       className="bg-red-500 text-white px-5 py-2 rounded-xl text-sm font-bold hover:bg-red-600 transition-colors flex items-center gap-1"
                     >
                       Apply Now <ArrowRight size={14} />
                     </button>
+                  )}
+
+                  {user?.role === 'CITIZEN' && (
                     <button className="bg-white border border-gray-200 text-gray-600 px-5 py-2 rounded-xl text-sm font-medium hover:border-gray-300 transition-colors">
                       Save
                     </button>
-                  </div>
+                  )}
                 </div>
               </div>
             ))
@@ -287,97 +322,155 @@ export default function Jobs() {
       </div>
 
       {/* Job Detail Modal */}
-      {selectedJob && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl">
-            <div className="flex items-start justify-between mb-4">
-              <div className="p-3 bg-blue-50 text-blue-600 rounded-xl"><Briefcase size={28} /></div>
-              <button onClick={() => setSelectedJob(null)} className="text-gray-400 hover:text-gray-600"><X size={24} /></button>
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-1">{selectedJob.title}</h2>
-            <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
-              <Building2 size={16} /><span>{selectedJob.department}</span>
-            </div>
-            <p className="text-gray-700 mb-6 leading-relaxed">{selectedJob.description}</p>
-            <div className="flex items-center justify-between pb-4 border-b border-gray-100 mb-4">
-              <div className="flex items-center gap-2 text-sm font-medium text-red-500">
-                <Calendar size={16} /><span>Deadline: {new Date(selectedJob.deadline).toLocaleDateString()}</span>
+      {
+        selectedJob && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl">
+              <div className="flex items-start justify-between mb-4">
+                <div className="p-3 bg-blue-50 text-blue-600 rounded-xl"><Briefcase size={28} /></div>
+                <button onClick={() => setSelectedJob(null)} className="text-gray-400 hover:text-gray-600"><X size={24} /></button>
               </div>
-              <div className="flex items-center gap-2 text-xs text-gray-400">
-                <Clock size={14} /><span>Posted {new Date(selectedJob.created_at).toLocaleDateString()}</span>
+              <h2 className="text-2xl font-bold text-gray-900 mb-1">{selectedJob.title}</h2>
+              <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
+                <Building2 size={16} /><span>{selectedJob.department}</span>
               </div>
-            </div>
-            {user?.role === 'CITIZEN' && (
-              application ? (
-                <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl p-4">
-                  <CheckCircle className="text-green-600" size={22} />
-                  <div>
-                    <p className="font-bold text-green-700">Application Submitted!</p>
-                    <p className="text-xs text-green-600">Status: <span className="font-semibold">{application.status}</span> · Applied {new Date(application.applied_at).toLocaleDateString()}</p>
+              <p className="text-gray-700 mb-6 leading-relaxed">{selectedJob.description}</p>
+              <div className="flex items-center justify-between pb-4 border-b border-gray-100 mb-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-red-500">
+                  <Calendar size={16} /><span>Deadline: {new Date(selectedJob.deadline).toLocaleDateString()}</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-gray-400">
+                  <Clock size={14} /><span>Posted {new Date(selectedJob.created_at).toLocaleDateString()}</span>
+                </div>
+              </div>
+              {user?.role === 'CITIZEN' && (
+                application ? (
+                  <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl p-4">
+                    <CheckCircle className="text-green-600" size={22} />
+                    <div>
+                      <p className="font-bold text-green-700">Application Submitted!</p>
+                      <p className="text-xs text-green-600">Status: <span className="font-semibold">{application.status}</span> · Applied {new Date(application.applied_at).toLocaleDateString()}</p>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <label className="block text-sm font-bold text-gray-700">Upload Resume (PDF)</label>
-                  <label className={`flex items-center gap-3 border-2 border-dashed rounded-xl p-4 cursor-pointer transition-colors ${resumeFile ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-blue-300'
-                    }`}>
-                    <Upload size={20} className="text-blue-500" />
-                    <span className="text-sm text-gray-600">
-                      {resumeFile ? resumeFile.name : 'Click to select your resume (PDF, DOC, DOCX)'}
-                    </span>
-                    <input type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={(e) => setResumeFile(e.target.files?.[0] || null)} />
-                  </label>
-                  {applyError && <p className="text-red-500 text-sm">{applyError}</p>}
-                  <button
-                    onClick={handleApply}
-                    disabled={!resumeFile || applyLoading}
-                    className="w-full bg-[#3182CE] text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors disabled:opacity-50"
-                  >
-                    {applyLoading ? <Loader2 className="animate-spin" size={18} /> : <><ArrowRight size={18} /> Apply Now</>}
-                  </button>
-                </div>
-              )
-            )}
+                ) : (
+                  <div className="space-y-3">
+                    <label className="block text-sm font-bold text-gray-700">Upload Resume (PDF)</label>
+                    <label className={`flex items-center gap-3 border-2 border-dashed rounded-xl p-4 cursor-pointer transition-colors ${resumeFile ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-blue-300'
+                      }`}>
+                      <Upload size={20} className="text-blue-500" />
+                      <span className="text-sm text-gray-600">
+                        {resumeFile ? resumeFile.name : 'Click to select your resume (PDF, DOC, DOCX)'}
+                      </span>
+                      <input type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={(e) => setResumeFile(e.target.files?.[0] || null)} />
+                    </label>
+                    {applyError && <p className="text-red-500 text-sm">{applyError}</p>}
+                    <button
+                      onClick={handleApply}
+                      disabled={!resumeFile || applyLoading}
+                      className="w-full bg-[#3182CE] text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    >
+                      {applyLoading ? <Loader2 className="animate-spin" size={18} /> : <><ArrowRight size={18} /> Apply Now</>}
+                    </button>
+                  </div>
+                )
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Post Job Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900">Post New Job</h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={24} /></button>
+      {
+        isModalOpen && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-gray-900">Post New Job</h2>
+                <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={24} /></button>
+              </div>
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Job Title</label>
+                  <input {...register('title')} className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="e.g. Senior Civil Engineer" />
+                  {errors.title && <p className="text-red-500 text-xs mt-1">{(errors.title as any).message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Department</label>
+                  <input {...register('department')} className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="e.g. Public Works" />
+                  {errors.department && <p className="text-red-500 text-xs mt-1">{(errors.department as any).message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Application Deadline</label>
+                  <input {...register('deadline')} type="date" className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none" />
+                  {errors.deadline && <p className="text-red-500 text-xs mt-1">{(errors.deadline as any).message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
+                  <textarea {...register('description')} rows={4} className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none resize-none" placeholder="Job responsibilities and requirements..." />
+                  {errors.description && <p className="text-red-500 text-xs mt-1">{(errors.description as any).message}</p>}
+                </div>
+                <button disabled={isLoading} className="w-full bg-[#3182CE] text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-70">
+                  {isLoading ? <Loader2 className="animate-spin" /> : 'Post Job'}
+                </button>
+              </form>
             </div>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Job Title</label>
-                <input {...register('title')} className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="e.g. Senior Civil Engineer" />
-                {errors.title && <p className="text-red-500 text-xs mt-1">{(errors.title as any).message}</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Department</label>
-                <input {...register('department')} className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="e.g. Public Works" />
-                {errors.department && <p className="text-red-500 text-xs mt-1">{(errors.department as any).message}</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Application Deadline</label>
-                <input {...register('deadline')} type="date" className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none" />
-                {errors.deadline && <p className="text-red-500 text-xs mt-1">{(errors.deadline as any).message}</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
-                <textarea {...register('description')} rows={4} className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none resize-none" placeholder="Job responsibilities and requirements..." />
-                {errors.description && <p className="text-red-500 text-xs mt-1">{(errors.description as any).message}</p>}
-              </div>
-              <button disabled={isLoading} className="w-full bg-[#3182CE] text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-70">
-                {isLoading ? <Loader2 className="animate-spin" /> : 'Post Job'}
-              </button>
-            </form>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+
+      {/* Applicants Modal (Admin Only) */}
+      {
+        isApplicantsModalOpen && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl w-full max-w-2xl p-6 shadow-xl max-h-[90vh] flex flex-col">
+              <div className="flex items-center justify-between mb-6 flex-shrink-0">
+                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <Users className="text-purple-600" />
+                  Applicants for {selectedJob?.title}
+                </h2>
+                <button onClick={() => setIsApplicantsModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={24} /></button>
+              </div>
+
+              <div className="overflow-y-auto flex-1 pr-2 space-y-4">
+                {loadingApplicants ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="animate-spin text-purple-600" size={32} />
+                  </div>
+                ) : applicantsData.length > 0 ? (
+                  applicantsData.map((app) => (
+                    <div key={app.id} className="border border-gray-100 rounded-xl p-4 hover:border-purple-200 transition-colors bg-gray-50">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="font-bold text-gray-900 text-lg">{app.citizen?.name || 'Unknown User'}</h3>
+                          <p className="text-sm text-gray-500 mb-2">{app.citizen?.email || 'No email provided'}</p>
+                          <div className="flex items-center gap-3 text-xs">
+                            <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold">Status: {app.status}</span>
+                            <span className="text-gray-400">Applied: {new Date(app.applied_at).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                        <a
+                          href={app.resume_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="bg-white border border-gray-200 text-purple-600 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:border-purple-300 hover:text-purple-700 transition-all shadow-sm"
+                        >
+                          <FileText size={16} /> View Resume
+                        </a>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                    <Users size={48} className="mx-auto text-gray-300 mb-3" />
+                    <p className="text-gray-500 font-medium">No applications have been submitted for this position yet.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+    </div >
   );
 }
