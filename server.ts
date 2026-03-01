@@ -113,7 +113,7 @@ async function startServer() {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     const token = jwt.sign({ id: user.id, role: user.role, deptId: user.department_id }, JWT_SECRET);
-    res.json({ token, user: { id: user.id, name: user.name, role: user.role, deptId: user.department_id } });
+    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, deptId: user.department_id } });
   });
 
   // Complaints
