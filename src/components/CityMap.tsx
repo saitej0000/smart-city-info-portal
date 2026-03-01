@@ -6,6 +6,18 @@ import { useAuthStore } from '../store';
 import { Loader2, Search, Star, Sparkles, Wifi, Radio, Bot, MapPin } from 'lucide-react';
 import L from 'leaflet';
 
+const userLocationIcon = L.divIcon({
+  className: 'custom-marker',
+  html: `<div style="position:relative;width:20px;height:20px;">
+    <div style="position:absolute;inset:0;background:#3B82F6;border-radius:50%;opacity:0.3;animation:ping 1.5s cubic-bezier(0,0,0.2,1) infinite;"></div>
+    <div style="position:absolute;inset:4px;background:#3B82F6;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>
+  </div>
+  <style>@keyframes ping{75%,100%{transform:scale(2);opacity:0}}</style>`,
+  iconSize: [20, 20],
+  iconAnchor: [10, 10],
+  popupAnchor: [0, -12]
+});
+
 const createCustomIcon = (status: string, isSelected: boolean) => {
   let colorClass = 'bg-blue-500';
   if (status === 'IN_PROGRESS') colorClass = 'bg-orange-500';
@@ -111,8 +123,8 @@ export default function CityMap() {
                 key={cat}
                 onClick={() => setInfraCategory(cat)}
                 className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all ${infraCategory === cat
-                    ? 'bg-[#3182CE] text-white'
-                    : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-300'
+                  ? 'bg-[#3182CE] text-white'
+                  : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-300'
                   }`}
               >
                 {cat === 'All' ? 'All' : cat.toUpperCase()}
@@ -182,7 +194,7 @@ export default function CityMap() {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           {userLocation && (
-            <Marker position={userLocation}>
+            <Marker position={userLocation} icon={userLocationIcon}>
               <Popup><div className="font-bold text-blue-600">You are here</div></Popup>
             </Marker>
           )}
@@ -204,8 +216,8 @@ export default function CityMap() {
                   <div className="p-2 min-w-[200px]">
                     <div className="flex items-center gap-2 mb-2">
                       <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${c.status === 'RESOLVED' ? 'bg-green-100 text-green-700' :
-                          c.status === 'IN_PROGRESS' ? 'bg-orange-100 text-orange-700' :
-                            'bg-blue-100 text-blue-700'
+                        c.status === 'IN_PROGRESS' ? 'bg-orange-100 text-orange-700' :
+                          'bg-blue-100 text-blue-700'
                         }`}>{c.status.replace('_', ' ')}</span>
                       <span className="text-xs text-gray-500 font-bold">{c.category}</span>
                     </div>
