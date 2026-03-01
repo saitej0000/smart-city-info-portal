@@ -15,6 +15,9 @@ export default function ExploreCategory() {
     const [searchTerm, setSearchTerm] = useState('');
     const [sortBy, setSortBy] = useState<'rating' | 'name'>('rating');
 
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
+
     const category = categories.find(c => c.slug === slug);
 
     if (!category) {
@@ -38,8 +41,20 @@ export default function ExploreCategory() {
             sortBy === 'rating' ? b.rating - a.rating : a.name.localeCompare(b.name)
         );
 
+    // Pagination logic
+    const totalPages = Math.ceil(filteredPlaces.length / itemsPerPage);
+    const paginatedPlaces = filteredPlaces.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+    );
+
+    // Reset to page 1 when search or sort changes
+    React.useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, sortBy]);
+
     return (
-        <div className="space-y-6 max-w-4xl mx-auto">
+        <div className="space-y-6 max-w-4xl mx-auto pb-10">
             {/* Back Link */}
             <Link to="/explore" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-[#3182CE] transition-colors font-medium">
                 <ArrowLeft size={16} /> Back to Explore
@@ -91,7 +106,7 @@ export default function ExploreCategory() {
 
             {/* Places Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filteredPlaces.map((place, idx) => (
+                {paginatedPlaces.map((place, idx) => (
                     <a
                         key={idx}
                         href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name + ', ' + place.address)}`}
@@ -115,6 +130,29 @@ export default function ExploreCategory() {
                     </a>
                 ))}
             </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-6 border-t border-gray-100 mt-8">
+                    <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                        Previous
+                    </button>
+                    <span className="text-sm text-gray-500 font-medium">
+                        Page {currentPage} of {totalPages}
+                    </span>
+                    <button
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                        Next
+                    </button>
+                </div>
+            )}
 
             {filteredPlaces.length === 0 && (
                 <div className="bg-white p-12 rounded-2xl border border-dashed border-gray-200 text-center text-gray-500">
