@@ -58,7 +58,13 @@ export default function Explore() {
                         {/* Top 3 Places */}
                         <div className="flex-1 space-y-0 divide-y divide-gray-50">
                             {cat.places.slice(0, 3).map((place, pIdx) => (
-                                <div key={pIdx} className="py-3 flex items-center justify-between group cursor-pointer hover:bg-gray-50 -mx-2 px-2 rounded-lg transition-colors">
+                                <a
+                                    key={pIdx}
+                                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name + ', ' + place.address)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="py-3 flex items-center justify-between group cursor-pointer hover:bg-gray-50 -mx-2 px-2 rounded-lg transition-colors block"
+                                >
                                     <div>
                                         <h3 className="font-semibold text-sm text-gray-900 group-hover:text-blue-600 transition-colors">{place.name}</h3>
                                         <div className="flex items-center gap-1 mt-0.5">
@@ -70,7 +76,7 @@ export default function Explore() {
                                         <Star size={12} className="text-yellow-500" fill="currentColor" />
                                         <span className="text-sm font-bold text-gray-700">{place.rating}</span>
                                     </div>
-                                </div>
+                                </a>
                             ))}
                         </div>
 

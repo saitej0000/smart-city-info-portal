@@ -92,7 +92,13 @@ export default function ExploreCategory() {
             {/* Places Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {filteredPlaces.map((place, idx) => (
-                    <div key={idx} className="bg-white p-5 rounded-2xl border border-gray-100 hover:border-blue-200 transition-all group cursor-pointer">
+                    <a
+                        key={idx}
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name + ', ' + place.address)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-white p-5 rounded-2xl border border-gray-100 hover:border-blue-200 transition-all group cursor-pointer block"
+                    >
                         <div className="flex items-start justify-between gap-3">
                             <div className="flex-1">
                                 <h3 className="font-bold text-gray-900 group-hover:text-[#3182CE] transition-colors">{place.name}</h3>
@@ -106,7 +112,7 @@ export default function ExploreCategory() {
                                 <span className="font-bold text-sm text-gray-800">{place.rating}</span>
                             </div>
                         </div>
-                    </div>
+                    </a>
                 ))}
             </div>
 
