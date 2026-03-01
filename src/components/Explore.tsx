@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { categories } from '../data/exploreData';
+import { categories as baseCategories } from '../data/exploreData';
+import { extraCategories } from '../data/exploreDataExtra';
 import { MapPin, Star, ChevronRight, Search } from 'lucide-react';
+
+const categories = [...baseCategories, ...extraCategories];
 
 export default function Explore() {
     const [searchTerm, setSearchTerm] = useState('');

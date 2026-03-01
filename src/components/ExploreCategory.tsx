@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { categories } from '../data/exploreData';
+import { categories as baseCategories } from '../data/exploreData';
+import { extraCategories } from '../data/exploreDataExtra';
+
+const categories = [...baseCategories, ...extraCategories];
 import { MapPin, Star, Search, ArrowLeft, ChevronDown } from 'lucide-react';
 
 export default function ExploreCategory() {
