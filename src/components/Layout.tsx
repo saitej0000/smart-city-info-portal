@@ -1,21 +1,17 @@
 import React from 'react';
-import { 
-  LayoutDashboard, 
-  FileText, 
-  Bell, 
-  Map, 
-  Briefcase, 
-  LogOut, 
-  Menu, 
-  X, 
-  ShieldCheck,
+import {
+  LayoutDashboard,
+  FileText,
+  Bell,
+  Map,
+  Briefcase,
+  LogOut,
+  Menu,
+  X,
   Building2,
   Users,
   Globe,
-  Compass,
-  Bus,
-  Trash2,
-  Siren
+  User
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store';
@@ -26,6 +22,18 @@ import { twMerge } from 'tailwind-merge';
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+const pageTitle: Record<string, string> = {
+  '/dashboard': 'Dashboard',
+  '/gov-services': 'Gov Services',
+  '/complaints': 'Complaints',
+  '/complaints/new': 'Complaints',
+  '/map': 'City Map',
+  '/jobs': 'Jobs',
+  '/profile': 'Profile',
+  '/admin/departments': 'Departments',
+  '/admin/users': 'Users',
+};
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuthStore();
@@ -38,17 +46,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     navigate('/login');
   };
 
+  const currentTitle = pageTitle[location.pathname] || 'Dashboard';
+
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['CITIZEN', 'DEPT_ADMIN', 'SUPER_ADMIN'] },
+    { name: 'Gov Services', path: '/gov-services', icon: Globe, roles: ['CITIZEN', 'DEPT_ADMIN', 'SUPER_ADMIN'] },
     { name: 'Complaints', path: '/complaints', icon: FileText, roles: ['CITIZEN', 'DEPT_ADMIN', 'SUPER_ADMIN'] },
     { name: 'City Map', path: '/map', icon: Map, roles: ['CITIZEN', 'DEPT_ADMIN', 'SUPER_ADMIN'] },
-    { name: 'Explore', path: '/explore', icon: Compass, roles: ['CITIZEN', 'DEPT_ADMIN', 'SUPER_ADMIN'] },
-    { name: 'Transportation', path: '/transport', icon: Bus, roles: ['CITIZEN', 'DEPT_ADMIN', 'SUPER_ADMIN'] },
-    { name: 'Waste Mgmt', path: '/waste', icon: Trash2, roles: ['CITIZEN', 'DEPT_ADMIN', 'SUPER_ADMIN'] },
-    { name: 'Emergency', path: '/emergency', icon: Siren, roles: ['CITIZEN', 'DEPT_ADMIN', 'SUPER_ADMIN'] },
     { name: 'Jobs', path: '/jobs', icon: Briefcase, roles: ['CITIZEN', 'SUPER_ADMIN'] },
-    { name: 'Alerts', path: '/alerts', icon: Bell, roles: ['CITIZEN', 'DEPT_ADMIN', 'SUPER_ADMIN'] },
-    { name: 'Resources', path: '/resources', icon: Globe, roles: ['CITIZEN', 'DEPT_ADMIN', 'SUPER_ADMIN'] },
+    { name: 'Profile', path: '/profile', icon: User, roles: ['CITIZEN', 'DEPT_ADMIN', 'SUPER_ADMIN'] },
     { name: 'Departments', path: '/admin/departments', icon: Building2, roles: ['SUPER_ADMIN'] },
     { name: 'Users', path: '/admin/users', icon: Users, roles: ['SUPER_ADMIN'] },
   ].filter(item => item.roles.includes(user?.role || ''));
@@ -56,15 +62,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="h-screen overflow-hidden bg-[#F7FAFC] flex flex-col md:flex-row">
       {/* Sidebar - Desktop */}
-      <aside className="hidden md:flex w-64 bg-[#1A202C] text-white flex-col flex-shrink-0">
-        <div className="p-6 flex items-center gap-3 flex-shrink-0">
-          <div className="w-10 h-10 bg-[#3182CE] rounded-lg flex items-center justify-center">
-            <ShieldCheck className="text-white" />
+      <aside className="hidden md:flex w-56 bg-white border-r border-gray-100 flex-col flex-shrink-0">
+        <div className="p-5 flex items-center gap-3 flex-shrink-0">
+          <div className="w-9 h-9 bg-[#3182CE] rounded-lg flex items-center justify-center">
+            <Building2 className="text-white" size={18} />
           </div>
-          <span className="font-bold text-xl tracking-tight">CivicPulse</span>
+          <span className="font-bold text-base text-gray-900 tracking-tight">Telangana One</span>
         </div>
 
-        <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
+        <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path || (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
             return (
@@ -72,44 +78,46 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 key={item.path}
                 to={item.path}
                 className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200",
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-sm",
                   isActive
-                    ? "bg-[#3182CE] text-white shadow-md shadow-blue-900/20" 
-                    : "text-gray-400 hover:bg-white/5 hover:text-white"
+                    ? "bg-blue-50 text-[#3182CE] font-semibold"
+                    : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
                 )}
               >
-                <item.icon size={20} className={cn(isActive ? "text-white" : "text-gray-400 group-hover:text-white")} />
-                <span className="font-medium">{item.name}</span>
+                <item.icon size={18} className={cn(isActive ? "text-[#3182CE]" : "text-gray-400")} />
+                <span>{item.name}</span>
               </Link>
             );
           })}
         </nav>
 
-        <div className="p-4 border-t border-white/10 flex-shrink-0">
-          <div className="flex items-center gap-3 px-4 py-3 mb-2">
-            <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-xs font-bold">
+        <div className="p-3 border-t border-gray-100 flex-shrink-0">
+          <div className="flex items-center gap-3 px-3 py-2.5 mb-1">
+            <div className="w-8 h-8 rounded-full bg-blue-100 text-[#3182CE] flex items-center justify-center text-xs font-bold">
               {user?.name.charAt(0)}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{user?.name}</p>
-              <p className="text-xs text-gray-500 truncate capitalize">{user?.role.toLowerCase().replace('_', ' ')}</p>
+              <p className="text-sm font-medium text-gray-900 truncate">{user?.name}</p>
+              <p className="text-xs text-gray-400 truncate capitalize">{user?.role.toLowerCase().replace('_', ' ')}</p>
             </div>
           </div>
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-red-500/10 rounded-lg transition-colors"
+            className="w-full flex items-center gap-3 px-3 py-2.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors text-sm"
           >
-            <LogOut size={20} />
-            <span className="font-medium">Logout</span>
+            <LogOut size={18} />
+            <span className="font-medium">Sign Out</span>
           </button>
         </div>
       </aside>
 
       {/* Mobile Header */}
-      <header className="md:hidden bg-[#1A202C] text-white p-4 flex items-center justify-between sticky top-0 z-50">
+      <header className="md:hidden bg-white border-b border-gray-100 p-4 flex items-center justify-between sticky top-0 z-50">
         <div className="flex items-center gap-2">
-          <ShieldCheck className="text-[#3182CE]" />
-          <span className="font-bold text-lg">CivicPulse</span>
+          <div className="w-8 h-8 bg-[#3182CE] rounded-lg flex items-center justify-center">
+            <Building2 className="text-white" size={16} />
+          </div>
+          <span className="font-bold text-sm text-gray-900">Telangana One</span>
         </div>
         <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
           {isMobileMenuOpen ? <X /> : <Menu />}
@@ -123,29 +131,29 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            className="fixed inset-0 z-40 bg-[#1A202C] md:hidden pt-20 px-6"
+            className="fixed inset-0 z-40 bg-white md:hidden pt-20 px-6"
           >
-            <nav className="space-y-4">
+            <nav className="space-y-2">
               {navItems.map((item) => (
                 <Link
                   key={item.path}
                   to={item.path}
                   onClick={() => setIsMobileMenuOpen(false)}
                   className={cn(
-                    "flex items-center gap-4 text-xl py-2",
-                    location.pathname === item.path ? "text-[#3182CE]" : "text-gray-400"
+                    "flex items-center gap-4 text-base py-3 px-3 rounded-lg",
+                    location.pathname === item.path ? "bg-blue-50 text-[#3182CE] font-semibold" : "text-gray-500"
                   )}
                 >
-                  <item.icon size={24} />
+                  <item.icon size={20} />
                   <span>{item.name}</span>
                 </Link>
               ))}
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-4 text-xl py-2 text-red-400"
+                className="flex items-center gap-4 text-base py-3 px-3 text-red-500 w-full"
               >
-                <LogOut size={24} />
-                <span>Logout</span>
+                <LogOut size={20} />
+                <span>Sign Out</span>
               </button>
             </nav>
           </motion.div>
@@ -153,15 +161,35 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </AnimatePresence>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto p-4 md:p-8">
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          {children}
-        </motion.div>
-      </main>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Top Header Bar */}
+        <header className="hidden md:flex items-center justify-between px-8 py-4 bg-white border-b border-gray-100 flex-shrink-0">
+          <h1 className="text-xl font-bold text-gray-900">{currentTitle}</h1>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-xs font-bold text-green-600">
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+              SECURE PORTAL ACTIVE
+            </div>
+            <button className="relative p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
+              <Bell size={20} />
+              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[9px] rounded-full flex items-center justify-center font-bold">3</span>
+            </button>
+            <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
+              <User size={20} />
+            </button>
+          </div>
+        </header>
+
+        <main className="flex-1 overflow-y-auto p-4 md:p-8">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            {children}
+          </motion.div>
+        </main>
+      </div>
     </div>
   );
 }

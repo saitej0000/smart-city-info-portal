@@ -8,17 +8,11 @@ import Complaints from './components/Complaints';
 import ComplaintDetails from './components/ComplaintDetails';
 import NewComplaint from './components/NewComplaint';
 import Jobs from './components/Jobs';
-import GovernmentLinks from './components/GovernmentLinks';
+import GovServices from './components/GovServices';
 import CityMap from './components/CityMap';
-import CityDirectory from './components/CityDirectory';
-import Transportation from './components/Transportation';
-import WasteManagement from './components/WasteManagement';
-import EmergencyServices from './components/Emergency';
+import Profile from './components/Profile';
 import Departments from './components/admin/Departments';
 import Users from './components/admin/Users';
-
-// Placeholder components for other routes
-const Alerts = () => <div className="p-8"><h1 className="text-3xl font-bold">City Alerts</h1><p className="text-gray-500 mt-2">Manage and view emergency broadcasts.</p></div>;
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { token } = useAuthStore();
@@ -32,22 +26,18 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Auth />} />
         <Route path="/" element={<Navigate to="/dashboard" />} />
-        
+
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/gov-services" element={<ProtectedRoute><GovServices /></ProtectedRoute>} />
         <Route path="/complaints" element={<ProtectedRoute><Complaints /></ProtectedRoute>} />
         <Route path="/complaints/new" element={<ProtectedRoute><NewComplaint /></ProtectedRoute>} />
         <Route path="/complaints/:id" element={<ProtectedRoute><ComplaintDetails /></ProtectedRoute>} />
         <Route path="/map" element={<ProtectedRoute><CityMap /></ProtectedRoute>} />
-        <Route path="/explore" element={<ProtectedRoute><CityDirectory /></ProtectedRoute>} />
-        <Route path="/transport" element={<ProtectedRoute><Transportation /></ProtectedRoute>} />
-        <Route path="/waste" element={<ProtectedRoute><WasteManagement /></ProtectedRoute>} />
-        <Route path="/emergency" element={<ProtectedRoute><EmergencyServices /></ProtectedRoute>} />
         <Route path="/jobs" element={<ProtectedRoute><Jobs /></ProtectedRoute>} />
-        <Route path="/resources" element={<ProtectedRoute><GovernmentLinks /></ProtectedRoute>} />
-        <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/admin/departments" element={<ProtectedRoute><Departments /></ProtectedRoute>} />
         <Route path="/admin/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
-        
+
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/dashboard" />} />
       </Routes>

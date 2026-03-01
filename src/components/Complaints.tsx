@@ -1,18 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '../store';
-import { 
-  Search, 
-  Filter, 
-  MapPin, 
-  Clock, 
-  CheckCircle2, 
+import {
+  Search,
+  MapPin,
+  Clock,
+  CheckCircle2,
   AlertCircle,
-  MoreVertical,
-  Image as ImageIcon,
-  Loader2
+  Loader2,
+  Trash2,
+  Zap,
+  Droplets,
+  ArrowRight,
+  Plus
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { clsx } from 'clsx';
 
 export default function Complaints() {
   const { user, token } = useAuthStore();
@@ -20,9 +21,14 @@ export default function Complaints() {
   const [isLoading, setIsLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [filter, setFilter] = useState('ALL');
+  const [deptFilter, setDeptFilter] = useState('All');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [tab, setTab] = useState<'track' | 'new'>('track');
+  const [departments, setDepartments] = useState<any[]>([]);
 
   useEffect(() => {
     fetchComplaints();
+    fetch('/api/departments').then(r => r.json()).then(setDepartments).catch(() => { });
   }, [token]);
 
   const fetchComplaints = async () => {
@@ -39,18 +45,23 @@ export default function Complaints() {
     }
   };
 
-  const filteredComplaints = complaints.filter(c => 
-    filter === 'ALL' || c.status === filter
-  );
+  const filteredComplaints = complaints.filter(c => {
+    const matchesStatus = filter === 'ALL' || c.status === filter;
+    const matchesDept = deptFilter === 'All' || c.dept_name === deptFilter;
+    const matchesSearch = !searchTerm ||
+      c.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.category.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesStatus && matchesDept && matchesSearch;
+  });
 
   const updateStatus = async (id: number, status: string) => {
     setUpdatingId(id);
     try {
       await fetch(`/api/complaints/${id}`, {
         method: 'PATCH',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}` 
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ status, resolution_notes: 'Updated by admin' })
       });
@@ -62,145 +73,157 @@ export default function Complaints() {
     }
   };
 
+  const getCategoryIcon = (category: string) => {
+    const cat = category.toLowerCase();
+    if (cat.includes('garbage') || cat.includes('waste')) return <Trash2 size={20} />;
+    if (cat.includes('power') || cat.includes('electric')) return <Zap size={20} />;
+    if (cat.includes('water')) return <Droplets size={20} />;
+    return <AlertCircle size={20} />;
+  };
+
+  const getCategoryIconBg = (category: string) => {
+    const cat = category.toLowerCase();
+    if (cat.includes('garbage') || cat.includes('waste')) return 'bg-gray-100 text-gray-600';
+    if (cat.includes('power') || cat.includes('electric')) return 'bg-yellow-50 text-yellow-600';
+    if (cat.includes('water')) return 'bg-cyan-50 text-cyan-600';
+    return 'bg-blue-50 text-blue-600';
+  };
+
+  const statusBadge = (status: string) => {
+    switch (status) {
+      case 'PENDING': return 'bg-yellow-50 text-yellow-700 border border-yellow-200';
+      case 'IN_PROGRESS': return 'bg-blue-50 text-blue-700 border border-blue-200';
+      case 'RESOLVED': return 'bg-green-50 text-green-700 border border-green-200';
+      default: return 'bg-gray-100 text-gray-600';
+    }
+  };
+
+  const deptNames = ['All', ...Array.from(new Set(complaints.map(c => c.dept_name).filter(Boolean)))];
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Complaints</h1>
-          <p className="text-gray-500">Track and manage city issues.</p>
-        </div>
+    <div className="space-y-5">
+      {/* Tabs */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => setTab('track')}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold transition-all ${tab === 'track' ? 'bg-[#3182CE] text-white shadow-md' : 'bg-white text-gray-600 border border-gray-200'
+            }`}
+        >
+          <Clock size={16} /> Track Issues
+        </button>
         {user?.role === 'CITIZEN' && (
-          <Link 
-            to="/complaints/new" 
-            className="bg-[#3182CE] text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all text-center"
+          <Link
+            to="/complaints/new"
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold transition-all bg-white text-gray-600 border border-gray-200 hover:border-blue-300`}
           >
-            New Complaint
+            <Plus size={16} /> Report New
           </Link>
         )}
       </div>
 
-      <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-          <input 
-            placeholder="Search complaints..." 
-            className="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none"
+      {/* Search + Filters */}
+      <div className="flex flex-col md:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <input
+            placeholder="Search by ID or Title..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
           />
         </div>
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0">
-          {['ALL', 'PENDING', 'IN_PROGRESS', 'RESOLVED'].map((s) => (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <span className="text-sm text-gray-400 flex items-center gap-1 flex-shrink-0">≡ Filter</span>
+          {deptNames.map((dept) => (
             <button
-              key={s}
-              onClick={() => setFilter(s)}
-              className={clsx(
-                "px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all",
-                filter === s 
-                  ? "bg-[#3182CE] text-white shadow-md" 
-                  : "bg-gray-50 text-gray-500 hover:bg-gray-100"
-              )}
+              key={dept}
+              onClick={() => setDeptFilter(dept)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${deptFilter === dept
+                  ? 'bg-[#3182CE] text-white'
+                  : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-300'
+                }`}
             >
-              {s.replace('_', ' ')}
+              {dept}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4">
-        {isLoading ? (
-          <div className="p-12 text-center text-gray-500">Loading complaints...</div>
-        ) : filteredComplaints.length > 0 ? (
-          filteredComplaints.map((c) => (
-            <div key={c.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden group hover:border-blue-200 transition-all">
-              <div className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className={clsx(
-                      "p-2 rounded-lg",
-                      c.status === 'RESOLVED' ? "bg-green-50 text-green-600" :
-                      c.status === 'IN_PROGRESS' ? "bg-orange-50 text-orange-600" :
-                      "bg-blue-50 text-blue-600"
-                    )}>
-                      {c.status === 'RESOLVED' ? <CheckCircle2 size={20} /> :
-                       c.status === 'IN_PROGRESS' ? <Clock size={20} /> :
-                       <AlertCircle size={20} />}
-                    </div>
-                    <div>
-                      <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">{c.category}</span>
-                      <h3 className="font-bold text-gray-900">{c.description}</h3>
-                    </div>
-                  </div>
+      {/* Complaint Cards */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="animate-spin text-blue-600" size={32} />
+        </div>
+      ) : filteredComplaints.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {filteredComplaints.map((c) => (
+            <div key={c.id} className="bg-white p-5 rounded-2xl border border-gray-100 hover:border-blue-200 transition-all group">
+              {/* Top: Icon + Status */}
+              <div className="flex items-start justify-between mb-3">
+                <div className={`p-2.5 rounded-xl ${getCategoryIconBg(c.category)}`}>
+                  {getCategoryIcon(c.category)}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${statusBadge(c.status)}`}>
+                    {c.status.replace('_', ' ')}
+                  </span>
                   {user?.role !== 'CITIZEN' && (
-                    <div className="flex items-center gap-2">
-                      {updatingId === c.id && <Loader2 className="animate-spin text-blue-600" size={16} />}
-                      <select 
-                        value={c.status}
-                        onChange={(e) => updateStatus(c.id, e.target.value)}
-                        disabled={updatingId === c.id}
-                        className={clsx(
-                          "text-xs font-bold bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 outline-none transition-opacity",
-                          updatingId === c.id && "opacity-50 cursor-not-allowed"
-                        )}
-                      >
-                        <option value="PENDING">Pending</option>
-                        <option value="IN_PROGRESS">In Progress</option>
-                        <option value="RESOLVED">Resolved</option>
-                      </select>
-                    </div>
+                    <select
+                      value={c.status}
+                      onChange={(e) => updateStatus(c.id, e.target.value)}
+                      disabled={updatingId === c.id}
+                      className="text-[10px] font-bold bg-gray-50 border border-gray-200 rounded-lg px-1.5 py-0.5 outline-none"
+                    >
+                      <option value="PENDING">Pending</option>
+                      <option value="IN_PROGRESS">In Progress</option>
+                      <option value="RESOLVED">Resolved</option>
+                    </select>
                   )}
                 </div>
+              </div>
 
-                <div className="flex flex-wrap items-center gap-6 text-sm text-gray-500">
-                  <div className="flex items-center gap-1.5">
-                    <MapPin size={16} className={c.latitude ? "text-blue-500" : "text-gray-400"} />
-                    {c.latitude && c.longitude ? (
-                      <a 
-                        href={`https://www.google.com/maps/search/?api=1&query=${c.latitude},${c.longitude}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline font-medium"
-                      >
-                        View Location
-                      </a>
-                    ) : (
-                      <span>No Location</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Clock size={16} className="text-gray-400" />
-                    <span>{new Date(c.created_at).toLocaleDateString()}</span>
-                  </div>
-                  {user?.role !== 'CITIZEN' && (
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold">
-                        {c.citizen_name?.charAt(0)}
-                      </div>
-                      <span>{c.citizen_name}</span>
-                    </div>
+              {/* Title */}
+              <h3 className="font-bold text-gray-900 mb-2 line-clamp-2 group-hover:text-blue-700 transition-colors">
+                {c.description}
+              </h3>
+
+              {/* Meta */}
+              <div className="space-y-1.5 mb-4">
+                <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <MapPin size={12} className="text-gray-400" />
+                  {c.latitude && c.longitude ? (
+                    <a href={`https://www.google.com/maps/search/?api=1&query=${c.latitude},${c.longitude}`}
+                      target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline uppercase font-medium">
+                      View Location
+                    </a>
+                  ) : (
+                    <span className="uppercase font-medium">{c.dept_name || 'Unknown Location'}</span>
                   )}
                 </div>
+                <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <Clock size={12} className="text-gray-400" />
+                  <span>REPORTED {new Date(c.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                </div>
+              </div>
 
-                {/* Show image and resolution notes for everyone if they exist */}
-                {c.image_url && (
-                  <div className="mt-4 rounded-xl overflow-hidden h-64 w-full md:w-96 border border-gray-100 shadow-sm">
-                    <img src={c.image_url} alt="Complaint evidence" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
-                  </div>
-                )}
-
-                {c.resolution_notes && (
-                  <div className="mt-4 p-3 bg-gray-50 rounded-xl text-xs text-gray-600 border border-gray-100">
-                    <span className="font-bold block mb-1">Resolution Notes:</span>
-                    {c.resolution_notes}
-                  </div>
-                )}
+              {/* Footer */}
+              <div className="flex items-center justify-between pt-3 border-t border-gray-50">
+                <span className="text-[10px] text-gray-400 font-mono">ID: COMP-{c.id}</span>
+                <Link
+                  to={`/complaints/${c.id}`}
+                  className="text-sm font-semibold text-[#3182CE] flex items-center gap-1 hover:underline"
+                >
+                  {c.status === 'RESOLVED' ? 'View Report' : 'View Details'} <ArrowRight size={14} />
+                </Link>
               </div>
             </div>
-          ))
-        ) : (
-          <div className="bg-white p-12 rounded-2xl border border-dashed border-gray-200 text-center text-gray-500">
-            No complaints found for this filter.
-          </div>
-        )}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <div className="bg-white p-12 rounded-2xl border border-dashed border-gray-200 text-center text-gray-500">
+          No complaints found for this filter.
+        </div>
+      )}
     </div>
   );
 }

@@ -1,11 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '../store';
-import { Briefcase, Calendar, Clock, Plus, Search, Building2, X, Loader2, ArrowRight, Upload, CheckCircle } from 'lucide-react';
+import { Briefcase, Calendar, Clock, Plus, Search, Building2, X, Loader2, ArrowRight, Upload, CheckCircle, Bookmark, Sparkles, Trash2, Bus, Zap, Droplets, Shield, Heart } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { clsx } from 'clsx';
-import { format } from 'date-fns';
 
 const jobSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters'),
@@ -13,6 +11,24 @@ const jobSchema = z.object({
   description: z.string().min(10, 'Description must be at least 10 characters'),
   deadline: z.string().min(1, 'Deadline is required'),
 });
+
+const deptIcons: Record<string, any> = {
+  'Waste Management': Trash2,
+  'Transport': Bus,
+  'Electricity': Zap,
+  'Water Supply': Droplets,
+  'Municipal Affairs': Building2,
+  'Public Health': Heart,
+};
+
+const deptColors: Record<string, string> = {
+  'Waste Management': 'bg-green-50 text-green-600',
+  'Transport': 'bg-blue-50 text-blue-600',
+  'Electricity': 'bg-yellow-50 text-yellow-600',
+  'Water Supply': 'bg-cyan-50 text-cyan-600',
+  'Municipal Affairs': 'bg-purple-50 text-purple-600',
+  'Public Health': 'bg-red-50 text-red-600',
+};
 
 export default function Jobs() {
   const { user, token } = useAuthStore();
@@ -26,6 +42,8 @@ export default function Jobs() {
   const [applyError, setApplyError] = useState('');
   const [application, setApplication] = useState<any>(null);
   const [appliedJobIds, setAppliedJobIds] = useState<Set<number>>(new Set());
+  const [deptFilter, setDeptFilter] = useState('All');
+  const [sortBy, setSortBy] = useState<'newest' | 'deadline'>('newest');
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
     resolver: zodResolver(jobSchema),
@@ -39,18 +57,13 @@ export default function Jobs() {
   const fetchJobs = async () => {
     try {
       const res = await fetch('/api/jobs');
-      const data = await res.json();
-      setJobs(data);
-    } catch (error) {
-      console.error('Failed to fetch jobs');
-    }
+      setJobs(await res.json());
+    } catch { }
   };
 
   const fetchMyApplications = async () => {
     try {
-      const res = await fetch('/api/jobs/applications/mine', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await fetch('/api/jobs/applications/mine', { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       setAppliedJobIds(new Set(data.map((a: any) => a.job_id)));
     } catch { }
@@ -61,40 +74,27 @@ export default function Jobs() {
     try {
       const res = await fetch('/api/jobs', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(data)
       });
-
-      if (!res.ok) {
-        throw new Error('Failed to post job');
-      }
-
+      if (!res.ok) throw new Error('Failed');
       fetchJobs();
       setIsModalOpen(false);
       reset();
-    } catch (error) {
-      console.error('Failed to post job');
-    } finally {
-      setIsLoading(false);
-    }
+    } catch { } finally { setIsLoading(false); }
   };
 
-  const [deptFilter, setDeptFilter] = useState('All');
-  const [sortBy, setSortBy] = useState<'newest' | 'deadline'>('newest');
-  const [appliedOnly, setAppliedOnly] = useState(false);
-
-  // Extract unique departments for dropdown
-  const departments = ['All', ...Array.from(new Set(jobs.map((j: any) => j.department).filter(Boolean)))];
+  const departments = Array.from(new Set(jobs.map((j: any) => j.department).filter(Boolean)));
+  const deptCounts = departments.reduce((acc, d) => {
+    acc[d] = jobs.filter(j => j.department === d).length;
+    return acc;
+  }, {} as Record<string, number>);
 
   const filteredJobs = jobs
     .filter(job =>
       (job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         job.department.toLowerCase().includes(searchTerm.toLowerCase())) &&
-      (deptFilter === 'All' || job.department === deptFilter) &&
-      (!appliedOnly || appliedJobIds.has(job.id))
+      (deptFilter === 'All' || job.department === deptFilter)
     )
     .sort((a: any, b: any) =>
       sortBy === 'deadline'
@@ -109,11 +109,8 @@ export default function Jobs() {
     setApplication(null);
     if (token) {
       try {
-        const res = await fetch(`/api/jobs/${job.id}/application`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const data = await res.json();
-        setApplication(data);
+        const res = await fetch(`/api/jobs/${job.id}/application`, { headers: { Authorization: `Bearer ${token}` } });
+        setApplication(await res.json());
       } catch { }
     }
   };
@@ -132,7 +129,6 @@ export default function Jobs() {
       });
       const { url, error: uploadErr } = await uploadRes.json();
       if (!uploadRes.ok) throw new Error(uploadErr || 'Upload failed');
-
       const applyRes = await fetch(`/api/jobs/${selectedJob.id}/apply`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -151,127 +147,143 @@ export default function Jobs() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Job Notifications</h1>
-          <p className="text-gray-500">Latest government job postings and opportunities.</p>
+      {/* Hero Banner */}
+      <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl p-8 text-white relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-40 h-40 opacity-10">
+          <div className="w-full h-full bg-blue-400 rounded-full blur-3xl"></div>
+        </div>
+        <div className="relative">
+          <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur px-3 py-1.5 rounded-full text-xs font-bold mb-4">
+            <Sparkles size={12} /> OPPORTUNITIES UPDATED HOURLY
+          </div>
+          <h1 className="text-3xl md:text-4xl font-bold mb-3">
+            Build the Future of <span className="text-green-400">Your City.</span>
+          </h1>
+          <p className="text-gray-300 max-w-xl mb-6 text-sm leading-relaxed">
+            Explore diverse careers across 127 municipal departments. From urban planning to advanced AI research, your skills power our growth.
+          </p>
+          <div className="relative max-w-lg">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <input
+              type="text"
+              placeholder="Search by role, department, or skill..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-11 pr-4 py-3 rounded-xl bg-white/10 backdrop-blur text-white placeholder-gray-400 border border-white/10 focus:border-white/30 outline-none transition-all"
+            />
+          </div>
         </div>
         {user?.role === 'SUPER_ADMIN' && (
           <button
             onClick={() => setIsModalOpen(true)}
-            className="bg-[#3182CE] text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all flex items-center gap-2"
+            className="absolute top-6 right-6 bg-white/20 backdrop-blur text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-white/30 transition-colors"
           >
-            <Plus size={20} />
-            Post New Job
+            <Plus size={16} /> Post Job
           </button>
         )}
       </div>
 
-      <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-3">
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-          <input
-            placeholder="Search jobs by title or department..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none"
-          />
-        </div>
-        {/* Filter Controls */}
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Department Filter */}
-          <select
-            value={deptFilter}
-            onChange={(e) => setDeptFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-          >
-            {departments.map(d => <option key={d}>{d}</option>)}
-          </select>
-          {/* Sort By */}
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
-            className="px-3 py-2 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-          >
-            <option value="newest">Newest First</option>
-            <option value="deadline">Deadline (Soonest)</option>
-          </select>
-          {/* Applied Only toggle for citizens */}
-          {user?.role === 'CITIZEN' && (
-            <button
-              onClick={() => setAppliedOnly(p => !p)}
-              className={clsx(
-                'flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-colors',
-                appliedOnly
-                  ? 'bg-green-100 border-green-300 text-green-700'
-                  : 'bg-white border-gray-200 text-gray-500 hover:border-green-300'
-              )}
-            >
-              <CheckCircle size={16} />
-              Applied Only
-            </button>
-          )}
-          {/* Clear filters */}
-          {(searchTerm || deptFilter !== 'All' || appliedOnly || sortBy !== 'newest') && (
-            <button
-              onClick={() => { setSearchTerm(''); setDeptFilter('All'); setAppliedOnly(false); setSortBy('newest'); }}
-              className="px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-500 hover:text-red-500 hover:border-red-200 transition-colors"
-            >
-              Clear Filters
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredJobs.length > 0 ? (
-          filteredJobs.map((job) => (
-            <div key={job.id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:border-blue-200 transition-all group flex flex-col h-full">
-              <div className="flex items-start justify-between mb-4">
-                <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
-                  <Briefcase size={24} />
-                </div>
-                <div className="flex items-center gap-2">
-                  {appliedJobIds.has(job.id) && (
-                    <span className="flex items-center gap-1 text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded-lg">
-                      <CheckCircle size={12} /> Applied
-                    </span>
-                  )}
-                  <span className="text-xs font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-lg flex items-center gap-1">
-                    <Clock size={12} />
-                    {new Date(job.created_at).toLocaleDateString()}
-                  </span>
-                </div>
-              </div>
-
-              <div className="mb-4 flex-1">
-                <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">{job.title}</h3>
-                <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
-                  <Building2 size={16} />
-                  <span>{job.department}</span>
-                </div>
-                <p className="text-gray-600 text-sm line-clamp-3">{job.description}</p>
-              </div>
-
-              <div className="pt-4 border-t border-gray-100 mt-auto">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-sm font-medium text-red-500">
-                    <Calendar size={16} />
-                    <span>Deadline: {new Date(job.deadline).toLocaleDateString()}</span>
-                  </div>
-                  <button onClick={() => openJobDetail(job)} className="text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-colors">
-                    <ArrowRight size={20} />
+      {/* Content */}
+      <div className="flex gap-6">
+        {/* Departments Sidebar */}
+        <div className="hidden lg:block w-64 flex-shrink-0">
+          <div className="bg-white rounded-2xl border border-gray-100 p-5">
+            <h3 className="flex items-center gap-2 text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">
+              <Building2 size={14} /> Departments
+            </h3>
+            <div className="space-y-1">
+              {departments.map((dept) => {
+                const Icon = deptIcons[dept] || Briefcase;
+                const colorCls = deptColors[dept] || 'bg-gray-50 text-gray-600';
+                return (
+                  <button
+                    key={dept}
+                    onClick={() => setDeptFilter(deptFilter === dept ? 'All' : dept)}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${deptFilter === dept ? 'bg-blue-50 text-[#3182CE] font-semibold' : 'text-gray-600 hover:bg-gray-50'
+                      }`}
+                  >
+                    <div className={`p-1.5 rounded-lg ${colorCls}`}>
+                      <Icon size={14} />
+                    </div>
+                    <span className="flex-1 text-left truncate">{dept}</span>
+                    <span className="text-xs text-gray-400 font-medium">{deptCounts[dept]}</span>
                   </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Jobs List */}
+        <div className="flex-1 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-gray-900 uppercase tracking-wider">
+              Open Positions ({filteredJobs.length})
+            </h2>
+            <div className="flex items-center gap-1 bg-white rounded-xl border border-gray-200 p-1">
+              <button
+                onClick={() => setSortBy('newest')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${sortBy === 'newest' ? 'bg-gray-100 text-gray-900' : 'text-gray-500'
+                  }`}
+              >
+                Latest
+              </button>
+              <button
+                onClick={() => setSortBy('deadline')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${sortBy === 'deadline' ? 'bg-gray-100 text-gray-900' : 'text-gray-500'
+                  }`}
+              >
+                Expiring Soon
+              </button>
+            </div>
+          </div>
+
+          {filteredJobs.length > 0 ? (
+            filteredJobs.map((job) => (
+              <div key={job.id} className="bg-white p-5 rounded-2xl border border-gray-100 hover:border-blue-200 transition-all">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    {/* Tags */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded">{job.department?.toUpperCase()}</span>
+                      <span className="text-[10px] font-bold bg-green-50 text-green-700 px-2 py-0.5 rounded">FULL TIME</span>
+                      {appliedJobIds.has(job.id) && (
+                        <span className="text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded flex items-center gap-0.5">
+                          <CheckCircle size={8} /> Applied
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-1">{job.title}</h3>
+                    <p className="text-sm text-gray-500 line-clamp-2 mb-3">{job.description}</p>
+                    <div className="flex items-center gap-4 text-xs text-gray-400">
+                      <span className="flex items-center gap-1">
+                        <Calendar size={12} /> Deadline: {new Date(job.deadline).toLocaleDateString('en-CA')}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Building2 size={12} /> {job.department || 'Hyderabad Metro'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => openJobDetail(job)}
+                      className="bg-red-500 text-white px-5 py-2 rounded-xl text-sm font-bold hover:bg-red-600 transition-colors flex items-center gap-1"
+                    >
+                      Apply Now <ArrowRight size={14} />
+                    </button>
+                    <button className="bg-white border border-gray-200 text-gray-600 px-5 py-2 rounded-xl text-sm font-medium hover:border-gray-300 transition-colors">
+                      Save
+                    </button>
+                  </div>
                 </div>
               </div>
+            ))
+          ) : (
+            <div className="p-12 text-center text-gray-500 bg-white rounded-2xl border border-dashed border-gray-200">
+              No active job postings found.
             </div>
-          ))
-        ) : (
-          <div className="col-span-full p-12 text-center text-gray-500 bg-white rounded-2xl border border-dashed border-gray-200">
-            No active job postings found.
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Job Detail Modal */}
@@ -279,31 +291,22 @@ export default function Jobs() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl">
             <div className="flex items-start justify-between mb-4">
-              <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
-                <Briefcase size={28} />
-              </div>
-              <button onClick={() => setSelectedJob(null)} className="text-gray-400 hover:text-gray-600">
-                <X size={24} />
-              </button>
+              <div className="p-3 bg-blue-50 text-blue-600 rounded-xl"><Briefcase size={28} /></div>
+              <button onClick={() => setSelectedJob(null)} className="text-gray-400 hover:text-gray-600"><X size={24} /></button>
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-1">{selectedJob.title}</h2>
             <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
-              <Building2 size={16} />
-              <span>{selectedJob.department}</span>
+              <Building2 size={16} /><span>{selectedJob.department}</span>
             </div>
             <p className="text-gray-700 mb-6 leading-relaxed">{selectedJob.description}</p>
             <div className="flex items-center justify-between pb-4 border-b border-gray-100 mb-4">
               <div className="flex items-center gap-2 text-sm font-medium text-red-500">
-                <Calendar size={16} />
-                <span>Deadline: {new Date(selectedJob.deadline).toLocaleDateString()}</span>
+                <Calendar size={16} /><span>Deadline: {new Date(selectedJob.deadline).toLocaleDateString()}</span>
               </div>
               <div className="flex items-center gap-2 text-xs text-gray-400">
-                <Clock size={14} />
-                <span>Posted {new Date(selectedJob.created_at).toLocaleDateString()}</span>
+                <Clock size={14} /><span>Posted {new Date(selectedJob.created_at).toLocaleDateString()}</span>
               </div>
             </div>
-
-            {/* Apply Section for Citizens */}
             {user?.role === 'CITIZEN' && (
               application ? (
                 <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl p-4">
@@ -316,20 +319,13 @@ export default function Jobs() {
               ) : (
                 <div className="space-y-3">
                   <label className="block text-sm font-bold text-gray-700">Upload Resume (PDF)</label>
-                  <label className={clsx(
-                    'flex items-center gap-3 border-2 border-dashed rounded-xl p-4 cursor-pointer transition-colors',
-                    resumeFile ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-blue-300'
-                  )}>
+                  <label className={`flex items-center gap-3 border-2 border-dashed rounded-xl p-4 cursor-pointer transition-colors ${resumeFile ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-blue-300'
+                    }`}>
                     <Upload size={20} className="text-blue-500" />
                     <span className="text-sm text-gray-600">
                       {resumeFile ? resumeFile.name : 'Click to select your resume (PDF, DOC, DOCX)'}
                     </span>
-                    <input
-                      type="file"
-                      accept=".pdf,.doc,.docx"
-                      className="hidden"
-                      onChange={(e) => setResumeFile(e.target.files?.[0] || null)}
-                    />
+                    <input type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={(e) => setResumeFile(e.target.files?.[0] || null)} />
                   </label>
                   {applyError && <p className="text-red-500 text-sm">{applyError}</p>}
                   <button
@@ -349,60 +345,33 @@ export default function Jobs() {
       {/* Post Job Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl animate-in fade-in zoom-in duration-200">
+          <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-gray-900">Post New Job</h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
-                <X size={24} />
-              </button>
+              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={24} /></button>
             </div>
-
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">Job Title</label>
-                <input
-                  {...register('title')}
-                  className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none"
-                  placeholder="e.g. Senior Civil Engineer"
-                />
+                <input {...register('title')} className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="e.g. Senior Civil Engineer" />
                 {errors.title && <p className="text-red-500 text-xs mt-1">{(errors.title as any).message}</p>}
               </div>
-
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">Department</label>
-                <input
-                  {...register('department')}
-                  className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none"
-                  placeholder="e.g. Public Works"
-                />
+                <input {...register('department')} className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="e.g. Public Works" />
                 {errors.department && <p className="text-red-500 text-xs mt-1">{(errors.department as any).message}</p>}
               </div>
-
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">Application Deadline</label>
-                <input
-                  {...register('deadline')}
-                  type="date"
-                  className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none"
-                />
+                <input {...register('deadline')} type="date" className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none" />
                 {errors.deadline && <p className="text-red-500 text-xs mt-1">{(errors.deadline as any).message}</p>}
               </div>
-
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
-                <textarea
-                  {...register('description')}
-                  rows={4}
-                  className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-                  placeholder="Job responsibilities and requirements..."
-                />
+                <textarea {...register('description')} rows={4} className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none resize-none" placeholder="Job responsibilities and requirements..." />
                 {errors.description && <p className="text-red-500 text-xs mt-1">{(errors.description as any).message}</p>}
               </div>
-
-              <button
-                disabled={isLoading}
-                className="w-full bg-[#3182CE] text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-70"
-              >
+              <button disabled={isLoading} className="w-full bg-[#3182CE] text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-70">
                 {isLoading ? <Loader2 className="animate-spin" /> : 'Post Job'}
               </button>
             </form>
