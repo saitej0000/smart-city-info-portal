@@ -1,17 +1,41 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { categories as baseCategories } from '../data/exploreData';
 import { extraCategories } from '../data/exploreDataExtra';
 import { massiveDataInjection } from '../data/exploreDataMassive';
 import { MapPin, Star, ChevronRight, Search } from 'lucide-react';
 
-const categories = [...baseCategories, ...extraCategories].map(cat => ({
+const STATIC_CATEGORIES = [...baseCategories, ...extraCategories].map(cat => ({
     ...cat,
     places: [...cat.places, ...(massiveDataInjection[cat.slug] || [])]
 }));
 
 export default function Explore() {
     const [searchTerm, setSearchTerm] = useState('');
+    const [dynamicLocations, setDynamicLocations] = useState<any[]>([]);
+
+    useEffect(() => {
+        fetch('/api/explore-locations')
+            .then(res => res.json())
+            .then(setDynamicLocations)
+            .catch(err => console.error(err));
+    }, []);
+
+    // Merge static and dynamic locations
+    const categories = STATIC_CATEGORIES.map(cat => {
+        const dynamicCatPlaces = dynamicLocations
+            .filter(loc => loc.category_slug === cat.slug)
+            .map(loc => ({
+                name: loc.name,
+                address: loc.address,
+                rating: loc.rating
+            }));
+
+        return {
+            ...cat,
+            places: [...dynamicCatPlaces, ...cat.places] // Dynamic shows first
+        };
+    });
 
     const filteredCategories = categories.map(cat => ({
         ...cat,
@@ -48,7 +72,7 @@ export default function Explore() {
                     <div key={idx} className="bg-white rounded-2xl border border-gray-100 p-6 flex flex-col">
                         {/* Category Header */}
                         <div className="mb-4">
-                            <div className={`inline-flex p-2.5 rounded-xl ${cat.iconBg} mb-3`}>
+                            <div className={`inline - flex p - 2.5 rounded - xl ${cat.iconBg} mb - 3`}>
                                 <cat.icon size={22} className={cat.iconColor} />
                             </div>
                             <h2 className="text-lg font-bold text-gray-900">{cat.title}</h2>
@@ -76,20 +100,20 @@ export default function Explore() {
                                         <Star size={12} className="text-yellow-500" fill="currentColor" />
                                         <span className="text-sm font-bold text-gray-700">{place.rating}</span>
                                     </div>
-                                </a>
+                                </a >
                             ))}
-                        </div>
+                        </div >
 
                         {/* View All Link */}
-                        <Link
+                        < Link
                             to={`/explore/${cat.slug}`}
                             className="mt-4 pt-3 border-t border-gray-50 text-sm font-semibold text-[#3182CE] hover:underline flex items-center justify-center gap-1 w-full"
                         >
                             View All {cat.title} <ChevronRight size={14} />
-                        </Link>
-                    </div>
+                        </Link >
+                    </div >
                 ))}
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }

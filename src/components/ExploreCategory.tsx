@@ -1,26 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { categories as baseCategories } from '../data/exploreData';
 import { extraCategories } from '../data/exploreDataExtra';
 import { massiveDataInjection } from '../data/exploreDataMassive';
 
-const categories = [...baseCategories, ...extraCategories].map(cat => ({
+const STATIC_CATEGORIES = [...baseCategories, ...extraCategories].map(cat => ({
     ...cat,
     places: [...cat.places, ...(massiveDataInjection[cat.slug] || [])]
 }));
-import { MapPin, Star, Search, ArrowLeft, ChevronDown } from 'lucide-react';
+import { MapPin, Star, Search, ArrowLeft } from 'lucide-react';
 
 export default function ExploreCategory() {
-    const { slug } = useParams<{ slug: string }>();
+    const { slug } = useParams();
     const [searchTerm, setSearchTerm] = useState('');
     const [sortBy, setSortBy] = useState<'rating' | 'name'>('rating');
 
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
 
-    const category = categories.find(c => c.slug === slug);
+    const [dynamicLocations, setDynamicLocations] = useState<any[]>([]);
 
-    if (!category) {
+    useEffect(() => {
+        if (slug) {
+            fetch(`/api/explore-locations/${slug}`)
+                .then(res => res.json())
+                .then(setDynamicLocations)
+                .catch(err => console.error(err));
+        }
+    }, [slug]);
+
+    const baseCategory = STATIC_CATEGORIES.find(c => c.slug === slug);
+
+    if (!baseCategory) {
         return (
             <div className="text-center py-20">
                 <p className="text-gray-500 text-lg">Category not found.</p>
@@ -28,6 +39,19 @@ export default function ExploreCategory() {
             </div>
         );
     }
+
+    // Merge static and dynamic locations
+    const category = {
+        ...baseCategory,
+        places: [
+            ...dynamicLocations.map(loc => ({
+                name: loc.name,
+                address: loc.address,
+                rating: loc.rating
+            })),
+            ...baseCategory.places
+        ]
+    };
 
     const Icon = category.icon;
 

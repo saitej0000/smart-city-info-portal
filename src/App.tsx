@@ -15,6 +15,7 @@ import Explore from './components/Explore';
 import ExploreCategory from './components/ExploreCategory';
 import Departments from './components/admin/Departments';
 import Users from './components/admin/Users';
+import AdminExplore from './components/admin/AdminExplore';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { token } = useAuthStore();
@@ -30,7 +31,7 @@ export default function App() {
         <Route path="/" element={<Navigate to="/dashboard" />} />
 
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/gov-services" element={<ProtectedRoute><GovServices /></ProtectedRoute>} />
+        <Route path="/services" element={<ProtectedRoute><GovServices /></ProtectedRoute>} />
         <Route path="/complaints" element={<ProtectedRoute><Complaints /></ProtectedRoute>} />
         <Route path="/complaints/new" element={<ProtectedRoute><NewComplaint /></ProtectedRoute>} />
         <Route path="/complaints/:id" element={<ProtectedRoute><ComplaintDetails /></ProtectedRoute>} />
@@ -41,6 +42,7 @@ export default function App() {
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/admin/departments" element={<ProtectedRoute><Departments /></ProtectedRoute>} />
         <Route path="/admin/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
+        <Route path="/admin/explore" element={<ProtectedRoute><AdminExplore /></ProtectedRoute>} />
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/dashboard" />} />

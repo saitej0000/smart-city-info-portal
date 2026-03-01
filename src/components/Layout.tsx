@@ -58,14 +58,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['CITIZEN', 'DEPT_ADMIN', 'SUPER_ADMIN'] },
-    { name: 'Gov Services', path: '/gov-services', icon: Globe, roles: ['CITIZEN', 'DEPT_ADMIN', 'SUPER_ADMIN'] },
-    { name: 'Complaints', path: '/complaints', icon: FileText, roles: ['CITIZEN', 'DEPT_ADMIN', 'SUPER_ADMIN'] },
-    { name: 'City Map', path: '/map', icon: Map, roles: ['CITIZEN', 'DEPT_ADMIN', 'SUPER_ADMIN'] },
+    { name: 'Gov Services', path: '/services', icon: FileText, roles: ['CITIZEN', 'SUPER_ADMIN'] },
+    { name: 'Complaints', path: '/complaints', icon: AlertTriangle, roles: ['CITIZEN', 'DEPT_ADMIN', 'SUPER_ADMIN'] },
+    { name: 'City Map', path: '/map', icon: MapPin, roles: ['CITIZEN', 'DEPT_ADMIN', 'SUPER_ADMIN'] },
     { name: 'Jobs', path: '/jobs', icon: Briefcase, roles: ['CITIZEN', 'SUPER_ADMIN'] },
     { name: 'Explore', path: '/explore', icon: Compass, roles: ['CITIZEN', 'DEPT_ADMIN', 'SUPER_ADMIN'] },
     { name: 'Profile', path: '/profile', icon: User, roles: ['CITIZEN', 'DEPT_ADMIN', 'SUPER_ADMIN'] },
     { name: 'Departments', path: '/admin/departments', icon: Building2, roles: ['SUPER_ADMIN'] },
     { name: 'Users', path: '/admin/users', icon: Users, roles: ['SUPER_ADMIN'] },
+    { name: 'Locations', path: '/admin/explore', icon: MapPin, roles: ['SUPER_ADMIN'] },
   ].filter(item => item.roles.includes(user?.role || ''));
 
   const alertTypeColor: Record<string, string> = {

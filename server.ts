@@ -299,6 +299,60 @@ async function startServer() {
     res.json(data || []);
   });
 
+  // Explore Locations
+  app.get('/api/explore-locations/:slug', async (req, res) => {
+    const { data, error } = await supabase
+      .from('explore_locations')
+      .select('*')
+      .eq('category_slug', req.params.slug);
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data || []);
+  });
+
+  app.get('/api/explore-locations', async (req, res) => {
+    const { data, error } = await supabase
+      .from('explore_locations')
+      .select('*');
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data || []);
+  });
+
+  app.post('/api/explore-locations', authenticateToken, async (req: any, res) => {
+    if (req.user.role !== 'SUPER_ADMIN' && req.user.role !== 'DEPT_ADMIN') {
+      return res.sendStatus(403);
+    }
+    const { category_slug, name, address, rating } = req.body;
+
+    const { data, error } = await supabase
+      .from('explore_locations')
+      .insert([{
+        category_slug,
+        name,
+        address,
+        rating: rating || 0,
+        created_by: req.user.id
+      }])
+      .select()
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.status(201).json(data);
+  });
+
+  app.delete('/api/explore-locations/:id', authenticateToken, async (req: any, res) => {
+    if (req.user.role !== 'SUPER_ADMIN' && req.user.role !== 'DEPT_ADMIN') {
+      return res.sendStatus(403);
+    }
+
+    const { error } = await supabase
+      .from('explore_locations')
+      .delete()
+      .eq('id', req.params.id);
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true });
+  });
+
   // Departments
   app.get('/api/departments', async (req, res) => {
     const { data, error } = await supabase.from('departments').select('*');
