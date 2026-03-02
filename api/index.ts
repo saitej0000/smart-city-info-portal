@@ -205,6 +205,20 @@ app.get('/api/jobs/:id/applicants', authenticateToken, async (req: any, res) => 
     res.json(data || []);
 });
 
+// Update applicant status (Admin only)
+app.patch('/api/jobs/applications/:appId/status', authenticateToken, async (req: any, res) => {
+    if (req.user.role !== 'SUPER_ADMIN') return res.sendStatus(403);
+    const { status } = req.body;
+    if (!['PENDING', 'APPROVED', 'REJECTED'].includes(status)) {
+        return res.status(400).json({ error: 'Invalid status' });
+    }
+    const { error } = await supabase.from('job_applications')
+        .update({ status })
+        .eq('id', req.params.appId);
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true });
+});
+
 // Departments
 app.get('/api/departments', async (req, res) => {
     const { data, error } = await supabase.from('departments').select('*');

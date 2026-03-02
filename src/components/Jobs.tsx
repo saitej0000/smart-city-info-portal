@@ -83,6 +83,21 @@ export default function Jobs() {
     }
   };
 
+  const updateApplicantStatus = async (appId: string, status: string) => {
+    try {
+      const res = await fetch(`/api/jobs/applications/${appId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status })
+      });
+      if (res.ok) {
+        setApplicantsData(prev => prev.map(a => a.id === appId ? { ...a, status } : a));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const fetchMyApplications = async () => {
     try {
       const res = await fetch('/api/jobs/applications/mine', { headers: { Authorization: `Bearer ${token}` } });
@@ -323,7 +338,7 @@ export default function Jobs() {
 
       {/* Job Detail Modal */}
       {
-        selectedJob && (
+        selectedJob && !isApplicantsModalOpen && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl">
               <div className="flex items-start justify-between mb-4">
@@ -443,9 +458,42 @@ export default function Jobs() {
                         <div>
                           <h3 className="font-bold text-gray-900 text-lg">{app.citizen?.name || 'Unknown User'}</h3>
                           <p className="text-sm text-gray-500 mb-2">{app.citizen?.email || 'No email provided'}</p>
-                          <div className="flex items-center gap-3 text-xs">
-                            <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold">Status: {app.status}</span>
+                          <div className="flex items-center gap-3 text-xs mb-3">
+                            <span className={`px-2 py-1 rounded font-bold ${app.status === 'APPROVED' ? 'bg-green-100 text-green-700' :
+                                app.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
+                                  'bg-blue-100 text-blue-700'
+                              }`}>Status: {app.status}</span>
                             <span className="text-gray-400">Applied: {new Date(app.applied_at).toLocaleDateString()}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => updateApplicantStatus(app.id, 'APPROVED')}
+                              disabled={app.status === 'APPROVED'}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 ${app.status === 'APPROVED'
+                                  ? 'bg-green-200 text-green-800 cursor-default'
+                                  : 'bg-green-500 text-white hover:bg-green-600'
+                                }`}
+                            >
+                              <CheckCircle size={12} /> Approve
+                            </button>
+                            <button
+                              onClick={() => updateApplicantStatus(app.id, 'REJECTED')}
+                              disabled={app.status === 'REJECTED'}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 ${app.status === 'REJECTED'
+                                  ? 'bg-red-200 text-red-800 cursor-default'
+                                  : 'bg-red-500 text-white hover:bg-red-600'
+                                }`}
+                            >
+                              <X size={12} /> Reject
+                            </button>
+                            {app.status !== 'PENDING' && (
+                              <button
+                                onClick={() => updateApplicantStatus(app.id, 'PENDING')}
+                                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors"
+                              >
+                                Reset
+                              </button>
+                            )}
                           </div>
                         </div>
                         <a
