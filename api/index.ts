@@ -198,11 +198,33 @@ app.get('/api/jobs/applications/mine', authenticateToken, async (req: any, res) 
 app.get('/api/jobs/:id/applicants', authenticateToken, async (req: any, res) => {
     if (req.user.role !== 'SUPER_ADMIN') return res.sendStatus(403);
     const { data, error } = await supabase.from('job_applications')
-        .select('id, status, applied_at, resume_url, citizen:citizen_id(name, email)')
+        .select('id, status, applied_at, resume_url, citizen_id, citizen:citizen_id(name, email)')
         .eq('job_id', req.params.id)
         .order('applied_at', { ascending: false });
     if (error) return res.status(500).json({ error: error.message });
-    res.json(data || []);
+
+    // For each applicant, fetch their other accepted jobs
+    const applicants = data || [];
+    const citizenIds = applicants.map((a: any) => a.citizen_id).filter(Boolean);
+    let currentJobsMap: Record<number, string[]> = {};
+    if (citizenIds.length > 0) {
+        const { data: acceptedApps } = await supabase.from('job_applications')
+            .select('citizen_id, job:job_id(title)')
+            .in('citizen_id', citizenIds)
+            .eq('status', 'ACCEPTED')
+            .neq('job_id', req.params.id);
+        if (acceptedApps) {
+            acceptedApps.forEach((a: any) => {
+                if (!currentJobsMap[a.citizen_id]) currentJobsMap[a.citizen_id] = [];
+                currentJobsMap[a.citizen_id].push((a.job as any)?.title || 'Unknown');
+            });
+        }
+    }
+
+    res.json(applicants.map((a: any) => ({
+        ...a,
+        current_jobs: currentJobsMap[a.citizen_id] || []
+    })));
 });
 
 // Update applicant status (Admin only)

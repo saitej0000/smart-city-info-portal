@@ -470,6 +470,18 @@ export default function Jobs() {
                               }`}>Status: {app.status}</span>
                             <span className="text-gray-400">Applied: {new Date(app.applied_at).toLocaleDateString()}</span>
                           </div>
+                          {app.current_jobs && app.current_jobs.length > 0 && (
+                            <div className="mb-3">
+                              <span className="text-xs font-semibold text-gray-500 uppercase">Current Positions:</span>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {app.current_jobs.map((jobTitle: string, idx: number) => (
+                                  <span key={idx} className="bg-purple-100 text-purple-700 text-[10px] px-2 py-0.5 rounded font-bold flex items-center gap-1">
+                                    <Briefcase size={10} /> {jobTitle}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => updateApplicantStatus(app.id, 'ACCEPTED')}
