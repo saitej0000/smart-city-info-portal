@@ -209,7 +209,7 @@ app.get('/api/jobs/:id/applicants', authenticateToken, async (req: any, res) => 
 app.patch('/api/jobs/applications/:appId/status', authenticateToken, async (req: any, res) => {
     if (req.user.role !== 'SUPER_ADMIN') return res.sendStatus(403);
     const { status } = req.body;
-    if (!['PENDING', 'APPROVED', 'REJECTED'].includes(status)) {
+    if (!['PENDING', 'ACCEPTED', 'REJECTED'].includes(status)) {
         return res.status(400).json({ error: 'Invalid status' });
     }
     const { error } = await supabase.from('job_applications')

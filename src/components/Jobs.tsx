@@ -459,19 +459,19 @@ export default function Jobs() {
                           <h3 className="font-bold text-gray-900 text-lg">{app.citizen?.name || 'Unknown User'}</h3>
                           <p className="text-sm text-gray-500 mb-2">{app.citizen?.email || 'No email provided'}</p>
                           <div className="flex items-center gap-3 text-xs mb-3">
-                            <span className={`px-2 py-1 rounded font-bold ${app.status === 'APPROVED' ? 'bg-green-100 text-green-700' :
-                                app.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
-                                  'bg-blue-100 text-blue-700'
+                            <span className={`px-2 py-1 rounded font-bold ${app.status === 'ACCEPTED' ? 'bg-green-100 text-green-700' :
+                              app.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
+                                'bg-blue-100 text-blue-700'
                               }`}>Status: {app.status}</span>
                             <span className="text-gray-400">Applied: {new Date(app.applied_at).toLocaleDateString()}</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <button
-                              onClick={() => updateApplicantStatus(app.id, 'APPROVED')}
-                              disabled={app.status === 'APPROVED'}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 ${app.status === 'APPROVED'
-                                  ? 'bg-green-200 text-green-800 cursor-default'
-                                  : 'bg-green-500 text-white hover:bg-green-600'
+                              onClick={() => updateApplicantStatus(app.id, 'ACCEPTED')}
+                              disabled={app.status === 'ACCEPTED'}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 ${app.status === 'ACCEPTED'
+                                ? 'bg-green-200 text-green-800 cursor-default'
+                                : 'bg-green-500 text-white hover:bg-green-600'
                                 }`}
                             >
                               <CheckCircle size={12} /> Approve
@@ -480,8 +480,8 @@ export default function Jobs() {
                               onClick={() => updateApplicantStatus(app.id, 'REJECTED')}
                               disabled={app.status === 'REJECTED'}
                               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 ${app.status === 'REJECTED'
-                                  ? 'bg-red-200 text-red-800 cursor-default'
-                                  : 'bg-red-500 text-white hover:bg-red-600'
+                                ? 'bg-red-200 text-red-800 cursor-default'
+                                : 'bg-red-500 text-white hover:bg-red-600'
                                 }`}
                             >
                               <X size={12} /> Reject
