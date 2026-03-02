@@ -194,6 +194,17 @@ app.get('/api/jobs/applications/mine', authenticateToken, async (req: any, res) 
     res.json(data || []);
 });
 
+// Get all applicants for a specific job (Admin only)
+app.get('/api/jobs/:id/applicants', authenticateToken, async (req: any, res) => {
+    if (req.user.role !== 'SUPER_ADMIN') return res.sendStatus(403);
+    const { data, error } = await supabase.from('job_applications')
+        .select('id, status, applied_at, resume_url, citizen:citizen_id(name, email)')
+        .eq('job_id', req.params.id)
+        .order('applied_at', { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data || []);
+});
+
 // Departments
 app.get('/api/departments', async (req, res) => {
     const { data, error } = await supabase.from('departments').select('*');
