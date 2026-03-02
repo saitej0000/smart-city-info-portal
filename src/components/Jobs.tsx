@@ -41,7 +41,7 @@ export default function Jobs() {
   const [applyLoading, setApplyLoading] = useState(false);
   const [applyError, setApplyError] = useState('');
   const [application, setApplication] = useState<any>(null);
-  const [appliedJobIds, setAppliedJobIds] = useState<Set<number>>(new Set());
+  const [appliedJobIds, setAppliedJobIds] = useState<Map<number, string>>(new Map());
   const [deptFilter, setDeptFilter] = useState('All');
   const [sortBy, setSortBy] = useState<'newest' | 'deadline'>('newest');
 
@@ -102,7 +102,7 @@ export default function Jobs() {
     try {
       const res = await fetch('/api/jobs/applications/mine', { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
-      setAppliedJobIds(new Set(data.map((a: any) => a.job_id)));
+      setAppliedJobIds(new Map(data.map((a: any) => [a.job_id, a.status])));
     } catch { }
   };
 
@@ -174,7 +174,7 @@ export default function Jobs() {
       const applyData = await applyRes.json();
       if (!applyRes.ok) throw new Error(applyData.error || 'Application failed');
       setApplication({ id: applyData.id, status: 'PENDING', applied_at: new Date().toISOString() });
-      setAppliedJobIds(prev => new Set([...prev, selectedJob.id]));
+      setAppliedJobIds(prev => new Map([...prev, [selectedJob.id, 'PENDING']]));
     } catch (e: any) {
       setApplyError(e.message);
     } finally {
@@ -285,8 +285,11 @@ export default function Jobs() {
                       <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded">{job.department?.toUpperCase()}</span>
                       <span className="text-[10px] font-bold bg-green-50 text-green-700 px-2 py-0.5 rounded">FULL TIME</span>
                       {appliedJobIds.has(job.id) && (
-                        <span className="text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded flex items-center gap-0.5">
-                          <CheckCircle size={8} /> Applied
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-0.5 ${appliedJobIds.get(job.id) === 'ACCEPTED' ? 'bg-green-100 text-green-700' :
+                            appliedJobIds.get(job.id) === 'REJECTED' ? 'bg-red-100 text-red-700' :
+                              'bg-yellow-100 text-yellow-700'
+                          }`}>
+                          <CheckCircle size={8} /> {appliedJobIds.get(job.id)}
                         </span>
                       )}
                     </div>
@@ -311,6 +314,13 @@ export default function Jobs() {
                     >
                       View Applicants <Users size={14} />
                     </button>
+                  ) : appliedJobIds.has(job.id) ? (
+                    <div className={`px-5 py-2 rounded-xl text-sm font-bold flex items-center gap-1 ${appliedJobIds.get(job.id) === 'ACCEPTED' ? 'bg-green-100 text-green-700 border border-green-200' :
+                        appliedJobIds.get(job.id) === 'REJECTED' ? 'bg-red-100 text-red-700 border border-red-200' :
+                          'bg-yellow-100 text-yellow-700 border border-yellow-200'
+                      }`}>
+                      <CheckCircle size={14} /> {appliedJobIds.get(job.id) === 'ACCEPTED' ? 'Accepted' : appliedJobIds.get(job.id) === 'REJECTED' ? 'Rejected' : 'Pending'}
+                    </div>
                   ) : (
                     <button
                       onClick={() => openJobDetail(job)}
