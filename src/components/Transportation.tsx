@@ -5,9 +5,6 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
 // Fix for default Leaflet marker icons by importing from standard unpkg/leaflet CDNs or just raw
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-
 // Using raw URLs since CRA / Vite sometimes fails resolving dist images
 const iconUrl = 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png';
 const iconShadow = 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png';

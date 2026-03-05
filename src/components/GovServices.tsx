@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { ExternalLink, Search, Globe, Building2, Heart, Shield, Lightbulb, GraduationCap, Coins, Sprout, Droplets, Star, BookOpen } from 'lucide-react';
+import { ExternalLink, Search, Globe, Building2, Heart, Shield, Lightbulb, GraduationCap, Coins, Sprout, Droplets, BookOpen } from 'lucide-react';
 
 type Category = 'All' | 'Agriculture' | 'Culture' | 'Education' | 'Emergency' | 'Finance' | 'General' | 'Governance';
 
 const services = [
     // Agriculture
-    { name: 'Agriculture Dept', url: 'https://agri.telangana.gov.in', icon: Sprout, desc: 'Official portal of the Telangana Agriculture Department providing...', category: 'Agriculture', popular: true },
+    { name: 'Agriculture Dept', url: 'https://agri.telangana.gov.in', icon: Sprout, desc: 'Official portal of the Telangana Agriculture Department providing...', category: 'Agriculture' },
     { name: 'Agri Licence (OLMS)', url: 'https://agriolms.telangana.gov.in', icon: BookOpen, desc: 'Online Licence Management System for Agriculture fertilizers and...', category: 'Agriculture' },
     { name: 'Rythu Bandhu (Agri)', url: 'https://agriolms.telangana.gov.in', icon: Coins, desc: 'Investment support scheme for farmers to purchase inputs.', category: 'Agriculture' },
     // Culture
@@ -16,14 +16,14 @@ const services = [
     { name: 'Technical Education', url: 'https://dte.telangana.gov.in', icon: GraduationCap, desc: 'Polytechnic and technical course information for students.', category: 'Education' },
     // Emergency
     { name: 'Telangana State Police', url: 'https://www.tspolice.gov.in', icon: Shield, desc: 'Law enforcement, safety tips, and complaint reporting.', category: 'Emergency' },
-    { name: 'Hyderabad Police', url: 'https://hyderabadpolice.gov.in', icon: Shield, desc: 'Official portal for citizen safety, FIR status, and police services.', category: 'Emergency', popular: true },
+    { name: 'Hyderabad Police', url: 'https://hyderabadpolice.gov.in', icon: Shield, desc: 'Official portal for citizen safety, FIR status, and police services.', category: 'Emergency' },
     // Finance
     { name: 'Finance Department', url: 'https://finance.telangana.gov.in', icon: Coins, desc: 'Budget, expenditure, and financial policies of Telangana.', category: 'Finance' },
     { name: 'Commercial Taxes', url: 'https://www.tgct.gov.in/tgportal', icon: Coins, desc: 'GST and commercial tax administration portal.', category: 'Finance' },
     // General
-    { name: 'MeeSeva Portal', url: 'https://ts.meeseva.telangana.gov.in', icon: Globe, desc: 'Universal gateway for all Telangana citizen services an...', category: 'General', popular: true },
-    { name: 'TS-bPASS', url: 'https://tsbpass.cgg.gov.in', icon: Building2, desc: 'Single window system for building permissions and layo...', category: 'General', popular: true },
-    { name: 'Dharani Portal', url: 'https://dharani.telangana.gov.in', icon: BookOpen, desc: 'Integrated Land Records Management System for...', category: 'General', popular: true },
+    { name: 'MeeSeva Portal', url: 'https://ts.meeseva.telangana.gov.in', icon: Globe, desc: 'Universal gateway for all Telangana citizen services an...', category: 'General' },
+    { name: 'TS-bPASS', url: 'https://tsbpass.cgg.gov.in', icon: Building2, desc: 'Single window system for building permissions and layo...', category: 'General' },
+    { name: 'Dharani Portal', url: 'https://dharani.telangana.gov.in', icon: BookOpen, desc: 'Integrated Land Records Management System for...', category: 'General' },
     { name: 'Registration & Stamps', url: 'https://registration.telangana.gov.in', icon: BookOpen, desc: 'Property registration, encumbrance certificates, and deeds.', category: 'General' },
     // Governance
     { name: "Chief Minister's Office", url: 'https://cm.telangana.gov.in', icon: Building2, desc: 'Official website of the CM, press releases, and initiatives.', category: 'Governance' },
@@ -100,8 +100,8 @@ export default function GovServices() {
                         key={cat}
                         onClick={() => setActiveCategory(cat)}
                         className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${activeCategory === cat
-                                ? 'bg-[#3182CE] text-white shadow'
-                                : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-300'
+                            ? 'bg-[#3182CE] text-white shadow'
+                            : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-300'
                             }`}
                     >
                         {cat}
@@ -128,11 +128,7 @@ export default function GovServices() {
                                     rel="noopener noreferrer"
                                     className="bg-white p-5 rounded-2xl border border-gray-100 hover:border-blue-200 hover:shadow-md transition-all group relative"
                                 >
-                                    {service.popular && (
-                                        <span className="absolute top-4 right-4 flex items-center gap-1 text-[10px] font-bold text-orange-500">
-                                            <Star size={10} fill="currentColor" /> POPULAR
-                                        </span>
-                                    )}
+
                                     <div className="p-2.5 bg-blue-50 text-[#3182CE] rounded-xl w-fit mb-3 group-hover:bg-[#3182CE] group-hover:text-white transition-colors">
                                         <service.icon size={20} />
                                     </div>
