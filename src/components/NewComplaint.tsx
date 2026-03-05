@@ -36,26 +36,22 @@ export default function NewComplaint() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [searchParams] = useSearchParams();
+  const presetDept = searchParams.get('dept') || '';
+  const presetCat = searchParams.get('cat') || '';
+
   const { register, handleSubmit, setValue, formState: { errors } } = useForm({
     resolver: zodResolver(complaintSchema),
+    defaultValues: {
+      department_id: presetDept,
+      category: presetCat,
+    },
   });
-
-  const [searchParams] = useSearchParams();
-  const presetDept = searchParams.get('dept');
-  const presetCat = searchParams.get('cat');
 
   useEffect(() => {
     fetch('/api/departments')
       .then(res => res.json())
-      .then((data) => {
-        setDepartments(data);
-        if (presetDept) {
-          setValue('department_id', presetDept, { shouldValidate: true });
-        }
-        if (presetCat) {
-          setValue('category', presetCat, { shouldValidate: true });
-        }
-      });
+      .then(setDepartments);
   }, []);
 
   const handleGetLocation = () => {
