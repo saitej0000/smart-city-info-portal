@@ -115,7 +115,6 @@ app.get('/api/complaints/:id', authenticateToken, async (req: any, res) => {
         .from('complaints').select('*, users:citizen_id(name), departments:department_id(name)')
         .eq('id', req.params.id).single();
     if (error || !complaint) return res.sendStatus(404);
-    if (req.user.role === 'CITIZEN' && complaint.citizen_id !== req.user.id) return res.sendStatus(403);
     if (req.user.role === 'DEPT_ADMIN' && complaint.department_id !== req.user.deptId) return res.sendStatus(403);
     res.json({ ...complaint, citizen_name: complaint.users?.name, dept_name: complaint.departments?.name });
 });
