@@ -56,7 +56,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     navigate('/login');
   };
 
-  const currentTitle = pageTitle[location.pathname] || 'Dashboard';
+  const currentTitle = pageTitle[location.pathname] || (location.pathname.startsWith('/department/') ? 'Department' : 'Dashboard');
 
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['CITIZEN', 'DEPT_ADMIN', 'SUPER_ADMIN'] },

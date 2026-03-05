@@ -248,6 +248,34 @@ app.get('/api/departments', async (req, res) => {
     res.json(data || []);
 });
 
+// Department Stats
+app.get('/api/departments/:id/stats', authenticateToken, async (req: any, res) => {
+    const deptId = parseInt(req.params.id);
+    const { data: dept, error: deptError } = await supabase
+        .from('departments').select('*').eq('id', deptId).single();
+    if (deptError || !dept) return res.status(404).json({ error: 'Department not found' });
+
+    const { data: complaints } = await supabase
+        .from('complaints')
+        .select('id, category, description, status, created_at, users:citizen_id(name)')
+        .eq('department_id', deptId)
+        .order('created_at', { ascending: false });
+
+    const all = complaints || [];
+    const stats = {
+        total: all.length,
+        pending: all.filter(c => c.status === 'PENDING').length,
+        in_progress: all.filter(c => c.status === 'IN_PROGRESS').length,
+        resolved: all.filter(c => c.status === 'RESOLVED').length,
+    };
+
+    res.json({
+        department: dept,
+        stats,
+        recentComplaints: all.slice(0, 5).map((c: any) => ({ ...c, citizen_name: c.users?.name })),
+    });
+});
+
 // Users (Super Admin)
 app.get('/api/users', authenticateToken, async (req: any, res) => {
     if (req.user.role !== 'SUPER_ADMIN') return res.sendStatus(403);

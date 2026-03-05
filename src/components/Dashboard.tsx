@@ -87,12 +87,12 @@ export default function Dashboard() {
   };
 
   const departments = [
-    { name: 'WASTE MGMT', icon: Trash2, color: 'text-gray-600 bg-gray-50' },
-    { name: 'TRANSPORT', icon: Bus, color: 'text-blue-600 bg-blue-50' },
-    { name: 'ELECTRICITY', icon: Zap, color: 'text-yellow-600 bg-yellow-50' },
-    { name: 'WATER SUPPLY', icon: Droplets, color: 'text-cyan-600 bg-cyan-50' },
-    { name: 'MUNICIPAL', icon: Building2, color: 'text-purple-600 bg-purple-50' },
-    { name: 'PUBLIC HEALTH', icon: Shield, color: 'text-red-600 bg-red-50' },
+    { name: 'WASTE MGMT', icon: Trash2, color: 'text-gray-600 bg-gray-50', departmentId: 1 },
+    { name: 'TRANSPORT', icon: Bus, color: 'text-blue-600 bg-blue-50', departmentId: 2 },
+    { name: 'ELECTRICITY', icon: Zap, color: 'text-yellow-600 bg-yellow-50', departmentId: 3 },
+    { name: 'WATER SUPPLY', icon: Droplets, color: 'text-cyan-600 bg-cyan-50', departmentId: 3 },
+    { name: 'MUNICIPAL', icon: Building2, color: 'text-purple-600 bg-purple-50', departmentId: 1 },
+    { name: 'PUBLIC HEALTH', icon: Shield, color: 'text-red-600 bg-red-50', departmentId: 4 },
   ];
 
   const alertTypeColor: Record<string, string> = {
@@ -238,12 +238,12 @@ export default function Dashboard() {
             <h2 className="text-base font-bold text-gray-900 mb-4">Service Departments</h2>
             <div className="grid grid-cols-2 gap-4">
               {departments.map((dept, i) => (
-                <div key={i} className="flex flex-col items-center gap-2 py-3">
-                  <div className={`p-3 rounded-xl ${dept.color}`}>
+                <Link key={i} to={`/department/${dept.departmentId}`} className="flex flex-col items-center gap-2 py-3 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer group">
+                  <div className={`p-3 rounded-xl ${dept.color} group-hover:scale-110 transition-transform`}>
                     <dept.icon size={22} />
                   </div>
-                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">{dept.name}</span>
-                </div>
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center group-hover:text-blue-600 transition-colors">{dept.name}</span>
+                </Link>
               ))}
             </div>
           </div>

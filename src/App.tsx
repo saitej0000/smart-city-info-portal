@@ -16,6 +16,7 @@ import ExploreCategory from './components/ExploreCategory';
 import Departments from './components/admin/Departments';
 import Users from './components/admin/Users';
 import AdminExplore from './components/admin/AdminExplore';
+import DepartmentDashboard from './components/DepartmentDashboard';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { token } = useAuthStore();
@@ -43,6 +44,7 @@ export default function App() {
         <Route path="/admin/departments" element={<ProtectedRoute><Departments /></ProtectedRoute>} />
         <Route path="/admin/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
         <Route path="/admin/explore" element={<ProtectedRoute><AdminExplore /></ProtectedRoute>} />
+        <Route path="/department/:id" element={<ProtectedRoute><DepartmentDashboard /></ProtectedRoute>} />
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/dashboard" />} />
