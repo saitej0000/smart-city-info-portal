@@ -146,7 +146,7 @@ export default function DepartmentDashboard() {
                             <p className="text-2xl font-bold">{resolvedPercent}%</p>
                         </div>
                         <Link
-                            to="/complaints/new"
+                            to={`/complaints/new?dept=${id}`}
                             className="ml-auto bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors"
                         >
                             <Plus size={16} /> Report Issue

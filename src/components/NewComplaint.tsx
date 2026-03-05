@@ -3,12 +3,12 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useAuthStore } from '../store';
-import { useNavigate } from 'react-router-dom';
-import { 
-  AlertCircle, 
-  MapPin, 
-  Camera, 
-  Send, 
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  AlertCircle,
+  MapPin,
+  Camera,
+  Send,
   ArrowLeft,
   Loader2,
   X
@@ -31,7 +31,7 @@ export default function NewComplaint() {
   const [isLoading, setIsLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
-  const [location, setLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [location, setLocation] = useState<{ lat: number, lng: number } | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -40,10 +40,18 @@ export default function NewComplaint() {
     resolver: zodResolver(complaintSchema),
   });
 
+  const [searchParams] = useSearchParams();
+  const presetDept = searchParams.get('dept');
+
   useEffect(() => {
     fetch('/api/departments')
       .then(res => res.json())
-      .then(setDepartments);
+      .then((data) => {
+        setDepartments(data);
+        if (presetDept) {
+          setValue('department_id', presetDept);
+        }
+      });
   }, []);
 
   const handleGetLocation = () => {
@@ -81,9 +89,9 @@ export default function NewComplaint() {
         },
         body: formData
       });
-      
+
       if (!res.ok) throw new Error('Upload failed');
-      
+
       const data = await res.json();
       setValue('image_url', data.url);
       setPreviewUrl(data.url);
@@ -100,9 +108,9 @@ export default function NewComplaint() {
     try {
       const response = await fetch('/api/complaints', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}` 
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
           ...data,
@@ -141,7 +149,7 @@ export default function NewComplaint() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <button 
+      <button
         onClick={() => navigate(-1)}
         className="flex items-center gap-2 text-gray-500 hover:text-gray-900 font-bold transition-colors"
       >
@@ -220,15 +228,15 @@ export default function NewComplaint() {
               {locationLoading ? <Loader2 className="animate-spin" size={20} /> : <MapPin size={20} />}
               {locationLoading ? 'Locating...' : location ? 'Location Tagged' : 'Tag My Location'}
             </button>
-            
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              className="hidden" 
+
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
               accept="image/*"
               onChange={handleFileChange}
             />
-            
+
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
@@ -243,7 +251,7 @@ export default function NewComplaint() {
           {previewUrl && (
             <div className="relative w-full h-48 bg-gray-100 rounded-xl overflow-hidden border border-gray-200">
               <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
-              <button 
+              <button
                 type="button"
                 onClick={() => {
                   setPreviewUrl(null);
