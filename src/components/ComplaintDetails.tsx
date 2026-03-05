@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store';
-import { 
-  ArrowLeft, 
-  MapPin, 
-  Clock, 
-  CheckCircle2, 
-  AlertCircle, 
+import {
+  ArrowLeft,
+  MapPin,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
   Building2,
   User,
   Loader2
@@ -45,9 +45,9 @@ export default function ComplaintDetails() {
     try {
       await fetch(`/api/complaints/${id}`, {
         method: 'PATCH',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}` 
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ status, resolution_notes: 'Updated from details page' })
       });
@@ -69,8 +69,8 @@ export default function ComplaintDetails() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <button 
-        onClick={() => navigate(-1)} 
+      <button
+        onClick={() => navigate(-1)}
         className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors"
       >
         <ArrowLeft size={20} />
@@ -88,12 +88,12 @@ export default function ComplaintDetails() {
                 <div className={clsx(
                   "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold",
                   complaint.status === 'RESOLVED' ? "bg-green-100 text-green-700" :
-                  complaint.status === 'IN_PROGRESS' ? "bg-orange-100 text-orange-700" :
-                  "bg-blue-100 text-blue-700"
+                    complaint.status === 'IN_PROGRESS' ? "bg-orange-100 text-orange-700" :
+                      "bg-blue-100 text-blue-700"
                 )}>
                   {complaint.status === 'RESOLVED' ? <CheckCircle2 size={14} /> :
-                   complaint.status === 'IN_PROGRESS' ? <Clock size={14} /> :
-                   <AlertCircle size={14} />}
+                    complaint.status === 'IN_PROGRESS' ? <Clock size={14} /> :
+                      <AlertCircle size={14} />}
                   {complaint.status.replace('_', ' ')}
                 </div>
               </div>
@@ -103,7 +103,7 @@ export default function ComplaintDetails() {
             {user?.role !== 'CITIZEN' && (
               <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-xl border border-gray-200">
                 {updating && <Loader2 className="animate-spin text-blue-600" size={16} />}
-                <select 
+                <select
                   value={complaint.status}
                   onChange={(e) => updateStatus(e.target.value)}
                   disabled={updating}
@@ -137,9 +137,9 @@ export default function ComplaintDetails() {
               <div>
                 <p className="text-xs text-gray-400 font-bold uppercase">Location</p>
                 {complaint.latitude ? (
-                  <a 
+                  <a
                     href={`https://www.google.com/maps/search/?api=1&query=${complaint.latitude},${complaint.longitude}`}
-                    target="_blank" 
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:underline font-medium"
                   >
@@ -150,7 +150,7 @@ export default function ComplaintDetails() {
                 )}
               </div>
             </div>
-            {user?.role !== 'CITIZEN' && (
+            {complaint.citizen_name && (
               <div className="flex items-center gap-3">
                 <User className="text-gray-400" size={20} />
                 <div>
@@ -168,9 +168,9 @@ export default function ComplaintDetails() {
               <h3 className="font-bold text-gray-900 text-sm">Evidence Photo</h3>
             </div>
             <div className="p-6 flex justify-center bg-gray-50/50">
-              <img 
-                src={complaint.image_url} 
-                alt="Complaint Evidence" 
+              <img
+                src={complaint.image_url}
+                alt="Complaint Evidence"
                 className="max-h-[500px] rounded-xl shadow-sm border border-gray-200"
               />
             </div>
