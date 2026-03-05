@@ -309,6 +309,31 @@ app.delete('/api/users/:id', authenticateToken, async (req: any, res) => {
     res.json({ success: true });
 });
 
+app.get('/api/users/:id/profile', authenticateToken, async (req: any, res) => {
+    const targetId = parseInt(req.params.id);
+    const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('id, name, role, departments:department_id(name)')
+        .eq('id', targetId)
+        .single();
+
+    if (userError || !user) return res.status(404).json({ error: 'User not found' });
+
+    // Fetch user's public complaints
+    const { data: complaints } = await supabase
+        .from('complaints')
+        .select('id, category, description, status, created_at, departments:department_id(name)')
+        .eq('citizen_id', targetId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+    res.json({
+        ...user,
+        dept_name: user.departments?.name,
+        recent_complaints: (complaints || []).map((c: any) => ({ ...c, dept_name: c.departments?.name }))
+    });
+});
+
 // Analytics
 app.get('/api/analytics', authenticateToken, async (req: any, res) => {
     if (req.user.role !== 'SUPER_ADMIN') return res.sendStatus(403);

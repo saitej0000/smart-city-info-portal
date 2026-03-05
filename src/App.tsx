@@ -11,6 +11,7 @@ import Jobs from './components/Jobs';
 import GovServices from './components/GovServices';
 import CityMap from './components/CityMap';
 import Profile from './components/Profile';
+import UserPublicProfile from './components/UserPublicProfile';
 import Explore from './components/Explore';
 import ExploreCategory from './components/ExploreCategory';
 import Departments from './components/admin/Departments';
@@ -41,6 +42,7 @@ export default function App() {
         <Route path="/explore" element={<ProtectedRoute><Explore /></ProtectedRoute>} />
         <Route path="/explore/:slug" element={<ProtectedRoute><ExploreCategory /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+        <Route path="/profile/:id" element={<ProtectedRoute><UserPublicProfile /></ProtectedRoute>} />
         <Route path="/admin/departments" element={<ProtectedRoute><Departments /></ProtectedRoute>} />
         <Route path="/admin/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
         <Route path="/admin/explore" element={<ProtectedRoute><AdminExplore /></ProtectedRoute>} />
