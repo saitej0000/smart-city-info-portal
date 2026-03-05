@@ -40,13 +40,16 @@ export default function NewComplaint() {
   const presetDept = searchParams.get('dept') || '';
   const presetCat = searchParams.get('cat') || '';
 
-  const { register, handleSubmit, setValue, formState: { errors } } = useForm({
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm({
     resolver: zodResolver(complaintSchema),
     defaultValues: {
       department_id: presetDept,
       category: presetCat,
     },
   });
+
+  const deptValue = watch('department_id');
+  const catValue = watch('category');
 
   useEffect(() => {
     fetch('/api/departments')
@@ -175,7 +178,8 @@ export default function NewComplaint() {
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">Department</label>
               <select
-                {...register('department_id')}
+                value={deptValue || ''}
+                onChange={(e) => setValue('department_id', e.target.value, { shouldValidate: true })}
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               >
                 <option value="">Select Department</option>
@@ -189,7 +193,8 @@ export default function NewComplaint() {
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">Category</label>
               <select
-                {...register('category')}
+                value={catValue || ''}
+                onChange={(e) => setValue('category', e.target.value, { shouldValidate: true })}
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               >
                 <option value="">Select Category</option>
