@@ -42,6 +42,7 @@ export default function NewComplaint() {
 
   const [searchParams] = useSearchParams();
   const presetDept = searchParams.get('dept');
+  const presetCat = searchParams.get('cat');
 
   useEffect(() => {
     fetch('/api/departments')
@@ -49,7 +50,10 @@ export default function NewComplaint() {
       .then((data) => {
         setDepartments(data);
         if (presetDept) {
-          setValue('department_id', presetDept);
+          setValue('department_id', presetDept, { shouldValidate: true });
+        }
+        if (presetCat) {
+          setValue('category', presetCat, { shouldValidate: true });
         }
       });
   }, []);

@@ -52,6 +52,13 @@ const DEFAULT_META = {
     govLinks: []
 };
 
+const DEPT_CATEGORY_MAP: Record<string, string> = {
+    'Waste Management': 'Waste',
+    'Transport': 'Roads',
+    'Water & Power': 'Water',
+    'Public Safety': 'Safety',
+};
+
 export default function DepartmentDashboard() {
     const { id } = useParams<{ id: string }>();
     const { token } = useAuthStore();
@@ -146,7 +153,7 @@ export default function DepartmentDashboard() {
                             <p className="text-2xl font-bold">{resolvedPercent}%</p>
                         </div>
                         <Link
-                            to={`/complaints/new?dept=${id}`}
+                            to={`/complaints/new?dept=${id}&cat=${encodeURIComponent(DEPT_CATEGORY_MAP[department.name] || 'Other')}`}
                             className="ml-auto bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors"
                         >
                             <Plus size={16} /> Report Issue
