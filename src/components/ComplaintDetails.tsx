@@ -157,7 +157,7 @@ export default function ComplaintDetails() {
                   <p className="text-xs text-gray-400 font-bold uppercase">Submitted By</p>
                   <Link
                     to={`/profile/${complaint.citizen_id}`}
-                    className="font-medium text-blue-600 hover:underline"
+                    className="font-medium hover:underline"
                   >
                     {complaint.citizen_name}
                   </Link>
