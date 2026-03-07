@@ -178,7 +178,7 @@ export default function Dashboard() {
             <h2 className="text-lg font-bold text-gray-900">Featured Government Sites</h2>
             <p className="text-xs text-gray-500">Most accessed digital services in your region.</p>
           </div>
-          <Link to="/gov-services" className="text-sm font-semibold text-[#3182CE] hover:underline flex items-center gap-1">
+          <Link to="/services" className="text-sm font-semibold text-[#3182CE] hover:underline flex items-center gap-1">
             Directory <ArrowRight size={14} />
           </Link>
         </div>
@@ -210,7 +210,7 @@ export default function Dashboard() {
               <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
                 <span className="text-red-500">🚨</span> Emergency Alerts
               </h2>
-              <Link to="/gov-services" className="text-sm font-semibold text-[#3182CE] hover:underline">Full Feed</Link>
+              <Link to="/services" className="text-sm font-semibold text-[#3182CE] hover:underline">Full Feed</Link>
             </div>
             <div className="space-y-3">
               {alerts.length > 0 ? alerts.map((alert) => (
