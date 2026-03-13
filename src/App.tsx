@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 import { useAuthStore } from './store';
 import Layout from './components/Layout';
 import Auth from './components/Auth';
@@ -51,6 +52,7 @@ export default function App() {
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/dashboard" />} />
       </Routes>
+      <Analytics />
     </BrowserRouter>
   );
 }
