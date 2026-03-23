@@ -33,19 +33,14 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const headers = { Authorization: `Bearer ${token}` };
-        const promises = [
-          fetch('/api/complaints', { headers }).then(res => res.json()),
-          fetch('/api/alerts').then(res => res.json())
-        ];
-        if (user?.role === 'SUPER_ADMIN') {
-          promises.push(fetch('/api/analytics', { headers }).then(res => res.json()));
-        }
-        const results = await Promise.all(promises);
-        setRecentComplaints(results[0].slice(0, 5));
-        setAlerts(results[1].slice(0, 3));
-        if (user?.role === 'SUPER_ADMIN') {
-          setStats(results[2]);
+        const res = await fetch('/api/dashboard', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        setRecentComplaints((data.complaints || []).slice(0, 5));
+        setAlerts((data.alerts || []).slice(0, 3));
+        if (data.analytics) {
+          setStats(data.analytics);
         }
       } catch (e) {
         console.error('Failed to fetch dashboard data');
@@ -54,7 +49,7 @@ export default function Dashboard() {
       }
     };
     fetchData();
-  }, [token, user?.role]);
+  }, [token]);
 
   const COLORS = ['#3182CE', '#ED8936', '#48BB78', '#F56565'];
 

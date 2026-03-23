@@ -357,4 +357,49 @@ app.get('/api/analytics', authenticateToken, async (req: any, res) => {
     }
 });
 
+// Combined Dashboard endpoint - single request for all dashboard data
+app.get('/api/dashboard', authenticateToken, async (req: any, res) => {
+    try {
+        // Build complaints query based on role
+        let complaintsQuery = supabase.from('complaints')
+            .select('*, users:citizen_id(name), departments:department_id(name)')
+            .order('created_at', { ascending: false });
+        if (req.user.role === 'DEPT_ADMIN') complaintsQuery = complaintsQuery.eq('department_id', req.user.deptId);
+        else if (req.user.role === 'CITIZEN') complaintsQuery = complaintsQuery.eq('citizen_id', req.user.id);
+
+        // Run complaints and alerts in parallel
+        const [complaintsResult, alertsResult] = await Promise.all([
+            complaintsQuery,
+            supabase.from('alerts').select('*').order('created_at', { ascending: false }).limit(10)
+        ]);
+
+        const complaints = (complaintsResult.data || []).map((c: any) => ({
+            ...c, citizen_name: c.users?.name, dept_name: c.departments?.name
+        }));
+        const alerts = alertsResult.data || [];
+
+        // Include analytics for super admins
+        let analytics = null;
+        if (req.user.role === 'SUPER_ADMIN') {
+            const { data: allComplaints } = await supabase.from('complaints').select('status, department_id, departments(name)');
+            const byStatus: Record<string, number> = {};
+            const byDept: Record<string, number> = {};
+            (allComplaints || []).forEach((c: any) => {
+                byStatus[c.status] = (byStatus[c.status] || 0) + 1;
+                const deptName = c.departments?.name || 'Unknown';
+                byDept[deptName] = (byDept[deptName] || 0) + 1;
+            });
+            analytics = {
+                totalComplaints: { count: allComplaints?.length || 0 },
+                byStatus: Object.entries(byStatus).map(([status, count]) => ({ status, count })),
+                byDept: Object.entries(byDept).map(([name, count]) => ({ name, count }))
+            };
+        }
+
+        res.json({ complaints, alerts, analytics });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 export default app;
