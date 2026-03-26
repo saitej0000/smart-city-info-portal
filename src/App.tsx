@@ -37,13 +37,33 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 export default function App() {
+  const isMissingConfig = !import.meta.env.VITE_FIREBASE_API_KEY && import.meta.env.PROD;
+
+  if (isMissingConfig) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white p-8 rounded-3xl shadow-xl border border-red-100 text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <span className="text-red-600 text-2xl font-bold">!</span>
+          </div>
+          <h1 className="text-xl font-bold text-gray-900 mb-2">Deployment Configuration Missing</h1>
+          <p className="text-gray-600 text-sm mb-6">Environment variables (VITE_FIREBASE_...) are not set in your Vercel project settings.</p>
+          <div className="bg-gray-50 p-4 rounded-xl text-left border border-gray-200">
+            <p className="text-xs font-mono text-gray-500 break-all">
+              1. Go to Vercel Dashboard<br/>2. Settings &gt; Environment Variables<br/>3. Add your .env values<br/>4. Redeploy your app
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <BrowserRouter>
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/login" element={<Auth />} />
           <Route path="/" element={<Navigate to="/dashboard" />} />
-
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/services" element={<ProtectedRoute><GovServices /></ProtectedRoute>} />
           <Route path="/complaints" element={<ProtectedRoute><Complaints /></ProtectedRoute>} />
@@ -59,8 +79,6 @@ export default function App() {
           <Route path="/admin/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
           <Route path="/admin/explore" element={<ProtectedRoute><AdminExplore /></ProtectedRoute>} />
           <Route path="/department/:id" element={<ProtectedRoute><DepartmentDashboard /></ProtectedRoute>} />
-
-          {/* Fallback */}
           <Route path="*" element={<Navigate to="/dashboard" />} />
         </Routes>
       </Suspense>
