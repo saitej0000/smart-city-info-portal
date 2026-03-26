@@ -3,8 +3,7 @@ import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import admin from 'firebase-admin';
 import dotenv from 'dotenv';
 import multer from 'multer';
 import fs from 'fs';
@@ -32,7 +31,28 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-const JWT_SECRET = process.env.JWT_SECRET || 'smart-city-secret-key-2026';
+const firebaseServiceAccountPath = path.resolve(__dirname, 'serviceAccountKey.json');
+let adminCredential;
+
+if (fs.existsSync(firebaseServiceAccountPath)) {
+    const serviceAccount = JSON.parse(fs.readFileSync(firebaseServiceAccountPath, 'utf8'));
+    adminCredential = admin.credential.cert(serviceAccount);
+} else if (process.env.FIREBASE_SERVICE_ACCOUNT_BASE64) {
+    try {
+        adminCredential = admin.credential.cert(JSON.parse(Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64, 'base64').toString('ascii')));
+    } catch (e) {
+        console.warn('Failed to parse Firebase Service Account from Base64');
+    }
+}
+
+if (adminCredential) {
+    admin.initializeApp({
+        credential: adminCredential,
+        databaseURL: "https://smartcity-efa1b-default-rtdb.asia-southeast1.firebasedatabase.app"
+    });
+} else {
+    console.warn('Firebase Admin not initialized. Provide serviceAccountKey.json or FIREBASE_SERVICE_ACCOUNT_BASE64 in .env');
+}
 
 // Initialize Supabase Client (bypassing RLS with Service Role Key)
 const supabaseUrl = process.env.SUPABASE_URL || '';
@@ -54,21 +74,19 @@ async function startServer() {
     const token = authHeader && authHeader.split(' ')[1];
     if (!token) return res.sendStatus(401);
 
-    jwt.verify(token, JWT_SECRET, async (err: any, user: any) => {
-      if (err) return res.sendStatus(403);
-
-      // Verify user still exists in DB
-      const { data: dbUser, error } = await supabase
-        .from('users')
-        .select('id, role, department_id')
-        .eq('id', user.id)
-        .single();
-
-      if (error || !dbUser) return res.sendStatus(401);
-
-      req.user = { ...user, ...dbUser }; // Refresh role/dept in case it changed
-      next();
-    });
+    try {
+        const decodedToken = await admin.auth().verifyIdToken(token);
+        const { data: dbUser, error } = await supabase
+            .from('users')
+            .select('id, name, email, role, department_id')
+            .eq('email', decodedToken.email)
+            .single();
+        if (error || !dbUser) return res.sendStatus(401);
+        req.user = { id: dbUser.id, role: dbUser.role, deptId: dbUser.department_id, email: dbUser.email };
+        next();
+    } catch (err: any) {
+        return res.sendStatus(403);
+    }
   };
 
   // --- API Routes ---
@@ -83,37 +101,51 @@ async function startServer() {
   });
 
   app.post('/api/auth/register', async (req, res) => {
-    const { name, email, mobile, password } = req.body;
+    const { name, email, mobile, token } = req.body;
     try {
-      const hashedPassword = bcrypt.hashSync(password, 10);
-      const { data, error } = await supabase
-        .from('users')
-        .insert([{ name, email, mobile, password: hashedPassword, role: 'CITIZEN' }])
-        .select()
-        .single();
+        const decodedToken = await admin.auth().verifyIdToken(token);
+        if (decodedToken.email !== email) throw new Error("Email mismatch");
 
-      if (error) throw error;
-      res.status(201).json({ id: data.id });
+        const { data, error } = await supabase
+            .from('users')
+            // Using a dummy password to satisfy NOT NULL constraints if they exist
+            .insert([{ name, email, mobile, role: 'CITIZEN', password: 'firebase-managed' }])
+            .select()
+            .single();
+        if (error) throw error;
+        res.status(201).json({ id: data.id });
     } catch (e: any) {
-      console.error("Supabase Registration Error:", e);
-      res.status(400).json({ error: e.message || 'Email already exists or registration failed' });
+        res.status(400).json({ error: e.message || 'Email already exists or registration failed' });
     }
   });
 
   app.post('/api/auth/login', async (req, res) => {
-    const { email, password } = req.body;
-
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', email)
-      .single();
-
-    if (error || !user || !bcrypt.compareSync(password, user.password as string)) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+    const { token, name, mobile } = req.body;
+    try {
+        const decodedToken = await admin.auth().verifyIdToken(token);
+        let { data: user } = await supabase
+            .from('users').select('*').eq('email', decodedToken.email).single();
+        
+        if (!user) {
+            const { data: newUser, error: createError } = await supabase
+                .from('users')
+                .insert([{ 
+                  name: name || decodedToken.name || 'Google User', 
+                  email: decodedToken.email, 
+                  mobile: mobile || null, 
+                  role: 'CITIZEN', 
+                  password: 'firebase-managed' 
+                }])
+                .select()
+                .single();
+            if (createError) throw createError;
+            user = newUser;
+        }
+        res.json({ token, user: { id: user.id, name: user.name, role: user.role, deptId: user.department_id } });
+    } catch (e: any) {
+        console.error("Login Error:", e);
+        res.status(401).json({ error: e.message || 'Invalid credentials or failed to auth' });
     }
-    const token = jwt.sign({ id: user.id, role: user.role, deptId: user.department_id }, JWT_SECRET);
-    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, deptId: user.department_id } });
   });
 
   // Complaints
@@ -420,16 +452,17 @@ async function startServer() {
 
   app.post('/api/users', authenticateToken, async (req: any, res) => {
     if (req.user.role !== 'SUPER_ADMIN') return res.sendStatus(403);
+    // When super admin creates users, they might not have a full token immediately, or they pre-create them locally
+    // For now we'll mock password insertion to maintain DB stability
     const { name, email, password, role, department_id } = req.body;
 
     try {
-      const hashedPassword = bcrypt.hashSync(password, 10);
       const { data, error } = await supabase
         .from('users')
         .insert([{
           name,
           email,
-          password: hashedPassword,
+          password: 'firebase-managed', // mock password
           role,
           department_id: department_id || null
         }])

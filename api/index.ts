@@ -1,17 +1,41 @@
 import express from 'express';
 import { createClient } from '@supabase/supabase-js';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import admin from 'firebase-admin';
 import dotenv from 'dotenv';
 import multer from 'multer';
 import path from 'path';
 
+
 dotenv.config();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'smart-city-secret-key-2026';
 const supabaseUrl = process.env.SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+import fs from 'fs';
+
+const firebaseServiceAccountPath = path.resolve(process.cwd(), 'serviceAccountKey.json');
+let adminCredential;
+
+if (fs.existsSync(firebaseServiceAccountPath)) {
+    const serviceAccount = JSON.parse(fs.readFileSync(firebaseServiceAccountPath, 'utf8'));
+    adminCredential = admin.credential.cert(serviceAccount);
+} else if (process.env.FIREBASE_SERVICE_ACCOUNT_BASE64) {
+    try {
+        adminCredential = admin.credential.cert(JSON.parse(Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64, 'base64').toString('ascii')));
+    } catch (e) {
+        console.warn('Failed to parse Firebase Service Account from Base64');
+    }
+}
+
+if (adminCredential) {
+    admin.initializeApp({
+        credential: adminCredential,
+        databaseURL: "https://smartcity-efa1b-default-rtdb.asia-southeast1.firebasedatabase.app"
+    });
+} else {
+    console.warn('Firebase Admin not initialized. Provide serviceAccountKey.json or FIREBASE_SERVICE_ACCOUNT_BASE64 in .env');
+}
 
 // Memory storage for Vercel (no persistent filesystem)
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -48,27 +72,32 @@ const authenticateToken = async (req: any, res: any, next: any) => {
     const token = authHeader && authHeader.split(' ')[1];
     if (!token) return res.sendStatus(401);
 
-    jwt.verify(token, JWT_SECRET, async (err: any, user: any) => {
-        if (err) return res.sendStatus(403);
+    try {
+        const decodedToken = await admin.auth().verifyIdToken(token);
         const { data: dbUser, error } = await supabase
             .from('users')
-            .select('id, role, department_id')
-            .eq('id', user.id)
+            .select('id, name, email, role, department_id')
+            .eq('email', decodedToken.email)
             .single();
         if (error || !dbUser) return res.sendStatus(401);
-        req.user = { ...user, ...dbUser };
+        req.user = { id: dbUser.id, role: dbUser.role, deptId: dbUser.department_id, email: dbUser.email };
         next();
-    });
+    } catch (err: any) {
+        return res.sendStatus(403);
+    }
 };
 
 // Auth
 app.post('/api/auth/register', async (req, res) => {
-    const { name, email, mobile, password } = req.body;
+    const { name, email, mobile, token } = req.body;
     try {
-        const hashedPassword = bcrypt.hashSync(password, 10);
+        const decodedToken = await admin.auth().verifyIdToken(token);
+        if (decodedToken.email !== email) throw new Error("Email mismatch");
+
         const { data, error } = await supabase
             .from('users')
-            .insert([{ name, email, mobile, password: hashedPassword, role: 'CITIZEN' }])
+            // Using a dummy password to satisfy NOT NULL constraints if they exist
+            .insert([{ name, email, mobile, role: 'CITIZEN', password: 'firebase-managed' }])
             .select()
             .single();
         if (error) throw error;
@@ -79,14 +108,32 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 app.post('/api/auth/login', async (req, res) => {
-    const { email, password } = req.body;
-    const { data: user, error } = await supabase
-        .from('users').select('*').eq('email', email).single();
-    if (error || !user || !bcrypt.compareSync(password, user.password as string)) {
-        return res.status(401).json({ error: 'Invalid credentials' });
+    const { token, name, mobile } = req.body;
+    try {
+        const decodedToken = await admin.auth().verifyIdToken(token);
+        let { data: user } = await supabase
+            .from('users').select('*').eq('email', decodedToken.email).single();
+        
+        if (!user) {
+            const { data: newUser, error: createError } = await supabase
+                .from('users')
+                .insert([{ 
+                  name: name || decodedToken.name || 'Google User', 
+                  email: decodedToken.email, 
+                  mobile: mobile || null, 
+                  role: 'CITIZEN', 
+                  password: 'firebase-managed' 
+                }])
+                .select()
+                .single();
+            if (createError) throw createError;
+            user = newUser;
+        }
+        res.json({ token, user: { id: user.id, name: user.name, role: user.role, deptId: user.department_id } });
+    } catch (e: any) {
+        console.error('Login Error:', e);
+        res.status(401).json({ error: e.message || 'Invalid credentials or failed to auth' });
     }
-    const token = jwt.sign({ id: user.id, role: user.role, deptId: user.department_id }, JWT_SECRET);
-    res.json({ token, user: { id: user.id, name: user.name, role: user.role, deptId: user.department_id } });
 });
 
 // Complaints
@@ -288,9 +335,8 @@ app.post('/api/users', authenticateToken, async (req: any, res) => {
     if (req.user.role !== 'SUPER_ADMIN') return res.sendStatus(403);
     const { name, email, password, role, department_id } = req.body;
     try {
-        const hashedPassword = bcrypt.hashSync(password, 10);
         const { data, error } = await supabase.from('users')
-            .insert([{ name, email, password: hashedPassword, role, department_id: department_id || null }])
+            .insert([{ name, email, password: 'firebase-managed', role, department_id: department_id || null }])
             .select().single();
         if (error) throw error;
         res.status(201).json({ id: data.id });
@@ -329,7 +375,7 @@ app.get('/api/users/:id/profile', authenticateToken, async (req: any, res) => {
 
     res.json({
         ...user,
-        dept_name: user.departments?.name,
+        dept_name: (user as any).departments?.name,
         recent_complaints: (complaints || []).map((c: any) => ({ ...c, dept_name: c.departments?.name }))
     });
 });
