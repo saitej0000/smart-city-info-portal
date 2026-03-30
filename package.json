@@ -7,7 +7,7 @@
   },
   "type": "module",
   "scripts": {
-    "dev": "tsx server.ts",
+    "dev": "tsx watch server.ts",
     "build": "vite build",
     "start": "npm run build && cross-env NODE_ENV=production tsx server.ts",
     "preview": "vite preview",

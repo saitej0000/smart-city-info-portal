@@ -70,6 +70,11 @@ async function startServer() {
 
   // --- Auth Middleware ---
   const authenticateToken = async (req: any, res: any, next: any) => {
+    if (!admin.apps.length) {
+      console.error("Firebase Admin SDK not initialized!");
+      return res.status(500).json({ error: "Server Auth Setup Missing: Add valid FIREBASE_SERVICE_ACCOUNT_BASE64 to .env" });
+    }
+
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
     if (!token) return res.sendStatus(401);
@@ -101,6 +106,9 @@ async function startServer() {
   });
 
   app.post('/api/auth/register', async (req, res) => {
+    if (!admin.apps.length) {
+      return res.status(500).json({ error: "Server Signup Failed: Backend Firebase Admin is not configured. Add valid FIREBASE_SERVICE_ACCOUNT_BASE64 to .env" });
+    }
     const { name, email, mobile, token } = req.body;
     try {
         const decodedToken = await admin.auth().verifyIdToken(token);
@@ -120,6 +128,9 @@ async function startServer() {
   });
 
   app.post('/api/auth/login', async (req, res) => {
+    if (!admin.apps.length) {
+      return res.status(500).json({ error: "Server Login Failed: Backend Firebase Admin is not configured. Add valid FIREBASE_SERVICE_ACCOUNT_BASE64 to .env" });
+    }
     const { token, name, mobile } = req.body;
     try {
         const decodedToken = await admin.auth().verifyIdToken(token);
@@ -452,28 +463,54 @@ async function startServer() {
 
   app.post('/api/users', authenticateToken, async (req: any, res) => {
     if (req.user.role !== 'SUPER_ADMIN') return res.sendStatus(403);
-    // When super admin creates users, they might not have a full token immediately, or they pre-create them locally
-    // For now we'll mock password insertion to maintain DB stability
     const { name, email, password, role, department_id } = req.body;
 
+    if (!admin.apps.length) {
+      return res.status(500).json({ error: "Server Error: Backend Firebase Admin is not configured. Cannot create user in Firebase Auth." });
+    }
+
     try {
+      // 1. Create User in Firebase Auth
+      let firebaseUser;
+      try {
+        firebaseUser = await admin.auth().createUser({
+          email,
+          password,
+          displayName: name,
+        });
+      } catch (authErr: any) {
+        if (authErr.code === 'auth/email-already-exists') {
+          return res.status(400).json({ error: 'Email already exists in Firebase Authentication.' });
+        }
+        console.error("Firebase Auth Creation Error:", authErr);
+        throw new Error('Failed to create user in Firebase Auth.');
+      }
+
+      // 2. Create User in Supabase Database
       const { data, error } = await supabase
         .from('users')
         .insert([{
           name,
           email,
-          password: 'firebase-managed', // mock password
+          password: 'firebase-managed',
           role,
           department_id: department_id || null
         }])
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // Rollback Firebase user if Supabase insert fails
+        if (firebaseUser?.uid) {
+           await admin.auth().deleteUser(firebaseUser.uid).catch(e => console.error("Rollback fail:", e));
+        }
+        throw error;
+      }
+
       res.status(201).json({ id: data.id });
     } catch (e: any) {
       console.error(e);
-      res.status(400).json({ error: 'Failed to create user. Email may already exist or department invalid.' });
+      res.status(400).json({ error: e.message || 'Failed to create user. Email may already exist or department invalid.' });
     }
   });
 
@@ -485,13 +522,32 @@ async function startServer() {
       return res.status(400).json({ error: 'Cannot delete yourself' });
     }
 
-    // Note: If you set ON DELETE CASCADE on your complaints table for citizen_id
-    // you wouldn't need to manually delete complaints here. We'll do both just in case.
-    await supabase.from('complaints').delete().eq('citizen_id', targetUserId);
-    const { error } = await supabase.from('users').delete().eq('id', targetUserId);
+    try {
+      // 1. Delete from Firebase Auth
+      if (admin.apps.length) {
+        const { data: userToDel } = await supabase.from('users').select('email').eq('id', targetUserId).single();
+        if (userToDel?.email) {
+          try {
+             const fbUser = await admin.auth().getUserByEmail(userToDel.email);
+             if (fbUser) await admin.auth().deleteUser(fbUser.uid);
+          } catch(err: any) {
+             if (err.code !== 'auth/user-not-found') {
+               console.error("Firebase deletion failed:", err);
+             }
+          }
+        }
+      }
 
-    if (error) return res.status(500).json({ error: error.message });
-    res.json({ success: true });
+      // 2. Delete from Supabase Database
+      await supabase.from('complaints').delete().eq('citizen_id', targetUserId);
+      const { error } = await supabase.from('users').delete().eq('id', targetUserId);
+
+      if (error) throw error;
+      res.json({ success: true });
+    } catch (e: any) {
+      console.error(e);
+      res.status(500).json({ error: e.message || 'Failed to delete user completely' });
+    }
   });
 
   // Analytics (Super Admin)
